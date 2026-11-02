@@ -507,6 +507,20 @@ function StepUpDialog({ open, onConfirmed, onCancel }: { open: boolean; onConfir
   const [password, setPassword] = useState('');
   const [factor, setFactor] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!open || !dialog || dialog.open) {
+      return;
+    }
+    dialog.showModal();
+    return () => {
+      if (dialog.open) {
+        dialog.close();
+      }
+    };
+  }, [open]);
 
   if (!open) {
     return null;
@@ -526,8 +540,37 @@ function StepUpDialog({ open, onConfirmed, onCancel }: { open: boolean; onConfir
   }
 
   return (
-    <dialog open aria-label="Confirm your identity">
-      <h1>Confirm your identity</h1>
+    <dialog
+      ref={dialogRef}
+      aria-label="Confirm your identity"
+      onCancel={(event) => {
+        event.preventDefault();
+        onCancel();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Tab') {
+          return;
+        }
+        const focusable = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((element) => !element.hasAttribute('disabled'));
+        if (focusable.length === 0) {
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
+    >
+      <h2>Confirm your identity</h2>
       <p>Enter your password and current authenticator code to continue.</p>
       <label>
         Password
