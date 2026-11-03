@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchEventPage, fetchTrace, fetchTracePage } from './ActivityTimelineApi';
 import { buildEventTree } from './ActivityTimelineModel';
-import type { ActivityEvent, TraceDetail, TraceSummary } from './ActivityTimelineTypes';
+import type { ActivityTimelineItem, TraceDetail, TraceItem } from './ActivityTimelineTypes';
 
 export interface TraceListState {
-  items: TraceSummary[];
+  items: TraceItem[];
   nextCursor: string | null;
   loading: boolean;
   pending: boolean;
@@ -14,7 +14,7 @@ export interface TraceListState {
 }
 
 export function useTraceList(): TraceListState {
-  const [items, setItems] = useState<TraceSummary[]>([]);
+  const [items, setItems] = useState<TraceItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -73,7 +73,7 @@ export function useTraceList(): TraceListState {
 
 export interface TraceDetailState {
   trace: TraceDetail | null;
-  events: ActivityEvent[];
+  events: ActivityTimelineItem[];
   tree: ReturnType<typeof buildEventTree>;
   nextCursor: string | null;
   loading: boolean;
@@ -88,7 +88,7 @@ export interface TraceDetailState {
 
 export function useTraceDetail(traceId: string | undefined): TraceDetailState {
   const [trace, setTrace] = useState<TraceDetail | null>(null);
-  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [events, setEvents] = useState<ActivityTimelineItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);

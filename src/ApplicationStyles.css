@@ -874,3 +874,5 @@ a.trace-row { text-decoration: none; color: inherit; }
 .approval-list li { display: flex; gap: 1rem; justify-content: space-between; padding: 0.5rem 0; border-top: 1px solid var(--line, #e3e8ea); font-size: 0.8rem; }
 .activity-status { min-height: 1.2rem; margin: 0.4rem 0 0.6rem; color: var(--muted, #526771); font-size: 0.75rem; }
 .stale-note { margin: 0.8rem 0; padding: 0.7rem 0.9rem; border-radius: 0.6rem; background: #fff8e6; color: #7a5a12; }
+
+.trace-tombstone { padding: 0.85rem 0.85rem 0.8rem; border: 1px dashed var(--line, #e3e8ea); border-radius: 0.75rem; color: var(--muted, #526771); font-size: 0.8rem; }

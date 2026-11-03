@@ -67,25 +67,31 @@ export function ActivityTracesPage() {
 
         {!failure && items.length > 0 ? (
           <ul className="trace-list" aria-label="Traces">
-            {items.map((trace) => (
-              <li key={trace.traceId}>
-                <Link
-                  className="trace-row"
-                  to={`/activity/${trace.traceId}`}
-                  aria-label={`Open trace ${trace.traceId}`}
-                >
-                  <span className="trace-row-heading">
-                    <span className="trace-id">Trace {trace.traceId.slice(-8)}</span>
-                    <StatusBadge value={trace.executionStatus} />
-                  </span>
-                  <span className="trace-row-time">{formatTime(trace.receivedAt)}</span>
-                  <span className="trace-row-meta">
-                    <span>{outcomeLabel(trace.guardOutcome)}</span>
-                    <span>{statusLabel(trace.telemetryStatus)} telemetry</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
+            {items.map((trace) =>
+              'tombstone' in trace ? (
+                <li key={trace.traceId} className="trace-tombstone">
+                  Trace unavailable
+                </li>
+              ) : (
+                <li key={trace.traceId}>
+                  <Link
+                    className="trace-row"
+                    to={`/activity/${trace.traceId}`}
+                    aria-label={`Open trace ${trace.traceId}`}
+                  >
+                    <span className="trace-row-heading">
+                      <span className="trace-id">Trace {trace.traceId.slice(-8)}</span>
+                      <StatusBadge value={trace.executionStatus} />
+                    </span>
+                    <span className="trace-row-time">{formatTime(trace.receivedAt)}</span>
+                    <span className="trace-row-meta">
+                      <span>{outcomeLabel(trace.guardOutcome)}</span>
+                      <span>{statusLabel(trace.telemetryStatus)} telemetry</span>
+                    </span>
+                  </Link>
+                </li>
+              ),
+            )}
           </ul>
         ) : null}
 

@@ -72,4 +72,11 @@ export interface EventTombstone {
   eventId: string;
 }
 
+export interface TraceTombstone {
+  tombstone: true;
+  traceId: string;
+}
+
+export type TraceItem = TraceSummary | TraceTombstone;
+
 export type ActivityTimelineItem = ActivityEvent | EventTombstone;

@@ -1,15 +1,22 @@
 import { apiRequest } from '../../ApplicationApiClient';
 import type {
-  ActivityEvent,
+  ActivityTimelineItem,
+  EventTombstone,
   ExecutionStatus,
   GuardOutcome,
   TraceDetail,
+  TraceItem,
   TraceSummary,
+  TraceTombstone,
 } from './ActivityTimelineTypes';
 
 interface PageDto<T> {
   items: T[];
   nextCursor: string | null;
+}
+
+interface TraceSummaryDto extends TraceSummary {
+  tombstone?: boolean;
 }
 
 interface EventMetadataDto {
@@ -26,15 +33,16 @@ interface EventMetadataDto {
 
 interface ActivityEventDto {
   eventId: string;
-  traceId: string;
+  traceId: string | null;
   parentEventId: string | null;
   relationship: 'root' | 'linked' | 'unresolved';
-  kind: 'prompt' | 'guard' | 'approval' | 'agent' | 'model' | 'tool';
-  receivedAt: string;
+  kind: 'prompt' | 'guard' | 'approval' | 'agent' | 'model' | 'tool' | null;
+  receivedAt: string | null;
   sourceAt: string | null;
   durationMs: number | null;
   identity: string | null;
-  metadata: EventMetadataDto;
+  metadata: EventMetadataDto | null;
+  tombstone?: boolean;
 }
 
 export interface LoadedPage<T> {
@@ -42,13 +50,19 @@ export interface LoadedPage<T> {
   nextCursor: string | null;
 }
 
-function toActivityEvent(dto: ActivityEventDto): ActivityEvent {
+function toActivityEvent(dto: ActivityEventDto): ActivityTimelineItem {
+  if (dto.tombstone) {
+    const tombstone: EventTombstone = { tombstone: true, eventId: dto.eventId };
+    return tombstone;
+  }
+
+  const metadata = dto.metadata as EventMetadataDto;
   const base = {
     eventId: dto.eventId,
-    traceId: dto.traceId,
+    traceId: dto.traceId ?? '',
     parentEventId: dto.parentEventId,
     relationship: dto.relationship,
-    receivedAt: dto.receivedAt,
+    receivedAt: dto.receivedAt ?? '',
     sourceAt: dto.sourceAt,
     durationMs: dto.durationMs,
     identity: dto.identity,
@@ -60,8 +74,8 @@ function toActivityEvent(dto: ActivityEventDto): ActivityEvent {
         ...base,
         kind: 'prompt',
         metadata: {
-          guardOutcome: dto.metadata.guardOutcome,
-          ruleIds: dto.metadata.ruleIds,
+          guardOutcome: metadata.guardOutcome,
+          ruleIds: metadata.ruleIds,
         },
       };
     case 'guard':
@@ -69,10 +83,10 @@ function toActivityEvent(dto: ActivityEventDto): ActivityEvent {
         ...base,
         kind: 'guard',
         metadata: {
-          outcome: dto.metadata.outcome,
-          policyId: dto.metadata.policyId,
-          policyVersion: dto.metadata.policyVersion,
-          ruleIds: dto.metadata.ruleIds,
+          outcome: metadata.outcome,
+          policyId: metadata.policyId,
+          policyVersion: metadata.policyVersion,
+          ruleIds: metadata.ruleIds,
         },
       };
     case 'approval':
@@ -80,25 +94,33 @@ function toActivityEvent(dto: ActivityEventDto): ActivityEvent {
         ...base,
         kind: 'approval',
         metadata: {
-          approvalId: dto.metadata.approvalId,
-          state: dto.metadata.state,
+          approvalId: metadata.approvalId,
+          state: metadata.state,
         },
       };
     default:
       return {
         ...base,
-        kind: dto.kind,
+        kind: dto.kind ?? 'agent',
         metadata: {
-          name: dto.metadata.name,
-          status: dto.metadata.status,
+          name: metadata.name,
+          status: metadata.status,
         },
       };
   }
 }
 
-export async function fetchTracePage(cursor?: string | null): Promise<LoadedPage<TraceSummary>> {
+export async function fetchTracePage(cursor?: string | null): Promise<LoadedPage<TraceItem>> {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
-  return apiRequest<PageDto<TraceSummary>>(`/api/v1/traces${query}`);
+  const page = await apiRequest<PageDto<TraceSummaryDto>>(`/api/v1/traces${query}`);
+  const items: TraceItem[] = page.items.map((item) => {
+    if (item.tombstone) {
+      const tombstone: TraceTombstone = { tombstone: true, traceId: item.traceId };
+      return tombstone;
+    }
+    return item;
+  });
+  return { items, nextCursor: page.nextCursor };
 }
 
 export async function fetchTrace(traceId: string): Promise<TraceDetail> {
@@ -108,7 +130,7 @@ export async function fetchTrace(traceId: string): Promise<TraceDetail> {
 export async function fetchEventPage(
   traceId: string,
   cursor?: string | null,
-): Promise<LoadedPage<ActivityEvent>> {
+): Promise<LoadedPage<ActivityTimelineItem>> {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
   const page = await apiRequest<PageDto<ActivityEventDto>>(
     `/api/v1/traces/${encodeURIComponent(traceId)}/events${query}`,

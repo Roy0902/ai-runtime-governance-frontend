@@ -165,7 +165,8 @@ export function ActivityTracePage() {
   } = useTraceDetail(traceId);
   const failure = error ? failureCopy(error) : null;
   const approvals = events.filter(
-    (event): event is Extract<ActivityEvent, { kind: 'approval' }> => event.kind === 'approval',
+    (event): event is Extract<ActivityEvent, { kind: 'approval' }> =>
+      !('tombstone' in event) && event.kind === 'approval',
   );
 
   return (
@@ -268,6 +269,22 @@ export function ActivityTracePage() {
           ) : (
             <p className="empty-timeline">No activity is reported for this trace.</p>
           )}
+
+          {tree.unavailable.length ? (
+            <section className="unavailable-panel" aria-label="Unavailable event details">
+              <h3>Unavailable event details</h3>
+              <p>The event was reported, but its metadata is no longer available.</p>
+              <ul>
+                {tree.unavailable.map((item) => (
+                  <li key={item.eventId} className="unavailable-event">
+                    <span className="unavailable-marker" aria-hidden="true">—</span>
+                    <span>Event details unavailable</span>
+                    <code>{shortId(item.eventId)}</code>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           {events.length > 0 ? (
             <button
