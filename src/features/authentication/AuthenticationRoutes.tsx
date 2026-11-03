@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
-import { ApiError, type AuthenticatorSecrets, type AuthContext, type Operation } from './api';
-import { AuthProvider, useAuth } from './auth';
+import { ApiError } from '../../ApplicationApiClient';
+import type { AuthenticatorSecrets } from '../../api/AuthenticatorSecrets';
+import type { AuthenticationContext } from '../../api/AuthenticationContext';
+import type { Operation } from '../../api/Operation';
+import { useAuthentication } from '../../AuthenticationContext';
+import { ApplicationShell } from '../../components/layout/ApplicationShell';
 
 const ACCEPTED = "If this request is eligible, we'll send an email with the next steps.";
 
@@ -26,41 +30,10 @@ function Status({ text }: { text: string }) {
   return <p role="status">{text}</p>;
 }
 
-function AccountNavigation() {
-  const { send, refresh } = useAuth();
-  const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function signOut() {
-    setPending(true);
-    setError(null);
-    try {
-      await send('/api/v1/auth/sign-out', 'POST');
-      await refresh();
-      navigate('/signed-out', { replace: true });
-    } catch (caught) {
-      setError(errorText(caught));
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <>
-      <nav aria-label="Account navigation">
-        <a href="/account">Account</a>
-        <button type="button" onClick={signOut} disabled={pending}>Sign out</button>
-      </nav>
-      {error ? <Message text={error} /> : null}
-    </>
-  );
-}
-
-function RequireHuman({ children }: { children: ReactNode }) {
-  const { context } = useAuth();
+export function RequireHuman({ children }: { children: ReactNode }) {
+  const { context } = useAuthentication();
   if (!context) {
-    return <p>Loading…</p>;
+    return <AuthenticationContextLoading />;
   }
   if (context.state === 'SETUP') {
     return <Navigate to="/setup/enroll" replace />;
@@ -68,16 +41,16 @@ function RequireHuman({ children }: { children: ReactNode }) {
   if (context.state !== 'HUMAN') {
     return <Navigate to="/sign-in" replace />;
   }
-  return <><AccountNavigation />{children}</>;
+  return <ApplicationShell>{children}</ApplicationShell>;
 }
 
 function RequireSetup({ children }: { children: ReactNode }) {
-  const { context } = useAuth();
+  const { context } = useAuthentication();
   if (!context) {
-    return <p>Loading…</p>;
+    return <AuthenticationContextLoading />;
   }
   if (context.state === 'HUMAN') {
-    return <Navigate to="/account" replace />;
+    return <Navigate to="/activity" replace />;
   }
   if (context.state !== 'SETUP') {
     return <Navigate to="/sign-in" replace />;
@@ -86,12 +59,12 @@ function RequireSetup({ children }: { children: ReactNode }) {
 }
 
 function Home() {
-  const { context } = useAuth();
+  const { context } = useAuthentication();
   if (!context) {
-    return <p>Loading…</p>;
+    return <AuthenticationContextLoading />;
   }
   if (context.state === 'HUMAN') {
-    return <Navigate to="/account" replace />;
+    return <Navigate to="/activity" replace />;
   }
   if (context.state === 'SETUP') {
     return <Navigate to="/setup/enroll" replace />;
@@ -99,8 +72,28 @@ function Home() {
   return <Navigate to="/sign-in" replace />;
 }
 
+function AuthenticationContextLoading() {
+  const { loading, refreshError, refresh } = useAuthentication();
+
+  if (loading) {
+    return <p>Loading account context…</p>;
+  }
+
+  return (
+    <main>
+      <h1>Unable to load your session</h1>
+      <p role="alert">
+        {refreshError ?? 'Your session could not be loaded. Try again.'}
+      </p>
+      <button type="button" onClick={() => { void refresh().catch(() => {}); }}>
+        Retry
+      </button>
+    </main>
+  );
+}
+
 function SignInPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -114,8 +107,8 @@ function SignInPage() {
       const secondFactor = factor.trim()
         ? { kind: factor.replace(/-/g, '').length === 32 ? 'RECOVERY' : 'TOTP', code: factor }
         : undefined;
-      await send<AuthContext>('/api/v1/auth/sign-in', 'POST', { email, password, secondFactor });
-      navigate('/account');
+      await send<AuthenticationContext>('/api/v1/auth/sign-in', 'POST', { email, password, secondFactor });
+      navigate('/activity');
     } catch (caught) {
       setError(errorText(caught));
     }
@@ -148,7 +141,7 @@ function SignInPage() {
 }
 
 function RegisterPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
@@ -191,7 +184,7 @@ function RegisterPage() {
 }
 
 function VerifyPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const [email, setEmail] = useState('');
@@ -202,7 +195,7 @@ function VerifyPage() {
   async function verify() {
     setError(null);
     try {
-      await send<AuthContext>('/api/v1/auth/email-verifications/consume', 'POST', { token });
+      await send<AuthenticationContext>('/api/v1/auth/email-verifications/consume', 'POST', { token });
       setVerified(true);
       setStatus('Email verified. Continue to set up your authenticator.');
     } catch (caught) {
@@ -248,7 +241,7 @@ function VerifyPage() {
 }
 
 function ForgotPasswordPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -281,7 +274,7 @@ function ForgotPasswordPage() {
 }
 
 function ResetPasswordPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const [password, setPassword] = useState('');
@@ -390,7 +383,7 @@ function SecretDisplay({ secrets }: { secrets: AuthenticatorSecrets }) {
 }
 
 function EnrollPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const navigate = useNavigate();
   const state = useEnrollmentSecrets(
     () => send<Operation>('/api/v1/auth/enrollment', 'GET'),
@@ -401,7 +394,7 @@ function EnrollPage() {
         authenticatorCode: code,
         recoveryCodesSaved: saved,
       });
-      navigate('/account');
+      navigate('/activity');
     },
   );
 
@@ -432,7 +425,7 @@ function EnrollPage() {
 }
 
 function RestartPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [secrets, setSecrets] = useState<AuthenticatorSecrets | null>(null);
@@ -464,7 +457,7 @@ function RestartPage() {
         authenticatorCode: code,
         recoveryCodesSaved: saved,
       });
-      navigate('/account');
+      navigate('/activity');
     } catch (caught) {
       setError(errorText(caught));
     }
@@ -503,7 +496,7 @@ function RestartPage() {
 }
 
 function StepUpDialog({ open, onConfirmed, onCancel }: { open: boolean; onConfirmed: () => void; onCancel: () => void }) {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const [password, setPassword] = useState('');
   const [factor, setFactor] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -588,7 +581,7 @@ function StepUpDialog({ open, onConfirmed, onCancel }: { open: boolean; onConfir
 }
 
 function AccountPage() {
-  const { context } = useAuth();
+  const { context } = useAuthentication();
   const account = context?.account;
 
   return (
@@ -615,7 +608,7 @@ function AccountPage() {
 }
 
 function PasswordPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -665,7 +658,7 @@ function PasswordPage() {
 }
 
 function AuthenticatorPage() {
-  const { send } = useAuth();
+  const { send } = useAuthentication();
   const navigate = useNavigate();
   const [secrets, setSecrets] = useState<AuthenticatorSecrets | null>(null);
   const [operationId, setOperationId] = useState('');
@@ -699,7 +692,7 @@ function AuthenticatorPage() {
         authenticatorCode: code,
         recoveryCodesSaved: saved,
       });
-      navigate('/account');
+      navigate('/activity');
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'RECENT_AUTH_REQUIRED') {
         setStepUp('complete');
@@ -755,7 +748,7 @@ function AuthenticatorPage() {
 }
 
 function RecoveryGenerationPage() {
-  const { context, send } = useAuth();
+  const { context, send } = useAuthentication();
   const operationStorageKey = context?.account
     ? `arg-recovery-operation:${context.account.accountId}`
     : null;
@@ -893,10 +886,9 @@ function SignedOutPage() {
   );
 }
 
-export function App() {
+export function AuthenticationRoutes() {
   return (
-    <AuthProvider>
-      <Routes>
+    <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -962,7 +954,6 @@ export function App() {
         />
         <Route path="/signed-out" element={<SignedOutPage />} />
         <Route path="*" element={<Home />} />
-      </Routes>
-    </AuthProvider>
+    </Routes>
   );
 }

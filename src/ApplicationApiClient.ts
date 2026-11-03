@@ -1,53 +1,4 @@
-export interface Account {
-  accountId: string;
-  email: string;
-  emailVerified: boolean;
-  mfaState: string;
-  scopeId: string | null;
-  gatewayEntitlement: 'ABSENT' | 'GRANTED' | 'REVOKED';
-  session: {
-    createdAt: string;
-    absoluteExpiresAt: string;
-    idleExpiresAt: string;
-    recentAuthExpiresAt: string | null;
-  };
-}
-
-export interface AuthContext {
-  state: 'ANONYMOUS' | 'SETUP' | 'HUMAN';
-  csrfToken: string;
-  setupExpiresAt?: string | null;
-  enrollmentPurpose?: string | null;
-  account?: Account | null;
-}
-
-export interface Operation {
-  operationId: string;
-  purpose: string;
-  state: string;
-  createdAt: string;
-  expiresAt: string;
-}
-
-export interface AuthenticatorSecrets {
-  operation: Operation;
-  manualKey: string;
-  provisioningUri: string;
-  recoveryCodes: string[];
-}
-
-export interface RecoverySecrets {
-  operation: Operation;
-  recoveryCodes: string[];
-}
-
-export interface Failure {
-  code: string;
-  message: string;
-  correlationId: string;
-  retryAfterSeconds?: number | null;
-  fieldErrors?: { field: string; message: string }[] | null;
-}
+import type { Failure } from './api/Failure';
 
 export class ApiError extends Error {
   status: number;
@@ -66,11 +17,11 @@ export class ApiError extends Error {
 
 let csrfToken = '';
 
-export function setCsrf(token: string): void {
+export function setCsrfToken(token: string): void {
   csrfToken = token;
 }
 
-export async function api<T>(
+export async function apiRequest<T>(
   path: string,
   options: { method?: string; body?: unknown } = {},
 ): Promise<T> {
