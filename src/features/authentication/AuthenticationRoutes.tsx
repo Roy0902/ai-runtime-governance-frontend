@@ -311,13 +311,14 @@ function ResetPasswordPage() {
 function useEnrollmentSecrets(
   read: () => Promise<Operation>,
   start: () => Promise<AuthenticatorSecrets>,
-  complete: (operationId: string, code: string, saved: boolean) => Promise<void>,
+  complete: (operationId: string, code: string, saved: boolean, password: string) => Promise<void>,
 ) {
   const [secrets, setSecrets] = useState<AuthenticatorSecrets | null>(null);
   const [operationId, setOperationId] = useState<string | null>(null);
   const [alreadyIssued, setAlreadyIssued] = useState(false);
   const [code, setCode] = useState('');
   const [saved, setSaved] = useState(false);
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
 
@@ -354,13 +355,26 @@ function useEnrollmentSecrets(
       return;
     }
     try {
-      await complete(operationId, code, saved);
+      await complete(operationId, code, saved, password);
     } catch (caught) {
       setError(errorText(caught));
     }
   }
 
-  return { secrets, setSecrets, setOperationId, alreadyIssued, code, setCode, saved, setSaved, error, submit };
+  return {
+    secrets,
+    setSecrets,
+    setOperationId,
+    alreadyIssued,
+    code,
+    setCode,
+    saved,
+    setSaved,
+    password,
+    setPassword,
+    error,
+    submit,
+  };
 }
 
 function SecretDisplay({ secrets }: { secrets: AuthenticatorSecrets }) {
@@ -388,9 +402,10 @@ function EnrollPage() {
   const state = useEnrollmentSecrets(
     () => send<Operation>('/api/v1/auth/enrollment', 'GET'),
     () => send<AuthenticatorSecrets>('/api/v1/auth/enrollment', 'POST', { operationId: crypto.randomUUID() }),
-    async (operationId, code, saved) => {
+    async (operationId, code, saved, password) => {
       await send('/api/v1/auth/enrollment/complete', 'POST', {
         operationId,
+        password,
         authenticatorCode: code,
         recoveryCodesSaved: saved,
       });
@@ -406,6 +421,16 @@ function EnrollPage() {
       {state.alreadyIssued ? <Message text="These setup values were already shown. Start a new attempt." /> : null}
       {state.secrets ? <SecretDisplay secrets={state.secrets} /> : null}
       <form onSubmit={state.submit}>
+        <label>
+          Password
+          <input
+            aria-label="Password"
+            type="password"
+            autoComplete="current-password"
+            value={state.password}
+            onChange={(event) => state.setPassword(event.target.value)}
+          />
+        </label>
         <label>
           Six-digit code
           <input aria-label="Six-digit code" value={state.code} onChange={(event) => state.setCode(event.target.value)} />
@@ -454,6 +479,7 @@ function RestartPage() {
     try {
       await send('/api/v1/auth/enrollment/complete', 'POST', {
         operationId,
+        password,
         authenticatorCode: code,
         recoveryCodesSaved: saved,
       });
