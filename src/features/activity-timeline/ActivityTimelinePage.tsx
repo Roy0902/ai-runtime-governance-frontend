@@ -41,7 +41,7 @@ function eventHeading(event: ActivityEvent): string {
     case 'guard':
       return 'Guard decision';
     case 'approval':
-      return `Approval ${event.metadata.state}`;
+      return `Approval ${event.metadata.state ?? 'state not reported'}`;
     default:
       return event.metadata.name ?? `${event.kind} activity`;
   }
@@ -54,7 +54,7 @@ function eventState(event: ActivityEvent): string {
     case 'guard':
       return outcomeLabel(event.metadata.outcome);
     case 'approval':
-      return event.metadata.state;
+      return event.metadata.state ?? 'Not reported';
     default:
       return statusLabel(event.metadata.status);
   }
@@ -73,7 +73,7 @@ function eventMetadata(event: ActivityEvent): string[] {
         ...(event.metadata.ruleIds.length ? [`Rules: ${event.metadata.ruleIds.join(', ')}`] : []),
       ];
     case 'approval':
-      return [`Approval ID: ${shortId(event.metadata.approvalId)}`];
+      return event.metadata.approvalId ? [`Approval ID: ${shortId(event.metadata.approvalId)}`] : [];
     default:
       return event.metadata.name ? [`Reported name: ${event.metadata.name}`] : [];
   }
@@ -125,10 +125,9 @@ function EventCard({ node }: { node: EventNode }) {
           </div>
           <StatusBadge value={eventState(event)} />
         </div>
-        {node.unlinked ? (
-          <p className="event-unlinked">
-            Unlinked activity. Its reported parent is not available in this loaded page.
-          </p>
+        {node.unresolved ? <p className="event-unlinked">Unlinked activity.</p> : null}
+        {node.parentNotLoaded ? (
+          <p className="event-unlinked">Parent event is not loaded in this page.</p>
         ) : null}
         <dl className="event-details">
           <div>

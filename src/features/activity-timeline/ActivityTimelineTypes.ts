@@ -31,15 +31,15 @@ export interface PromptMetadata {
 }
 
 export interface GuardMetadata {
-  outcome: GuardOutcome;
+  outcome: GuardOutcome | null;
   policyId: string | null;
   policyVersion: string | null;
   ruleIds: string[];
 }
 
 export interface ApprovalMetadata {
-  approvalId: string;
-  state: 'requested' | 'approved' | 'rejected' | 'canceled' | 'expired';
+  approvalId: string | null;
+  state: 'requested' | 'approved' | 'rejected' | 'canceled' | 'expired' | null;
 }
 
 export interface ObservedMetadata {

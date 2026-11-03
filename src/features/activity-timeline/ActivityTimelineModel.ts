@@ -3,7 +3,8 @@ import type { ActivityEvent, ActivityTimelineItem, EventTombstone } from './Acti
 export interface EventNode {
   event: ActivityEvent;
   children: EventNode[];
-  unlinked: boolean;
+  unresolved: boolean;
+  parentNotLoaded: boolean;
 }
 
 export interface EventTree {
@@ -58,9 +59,10 @@ export function buildEventTree(items: ActivityTimelineItem[]): EventTree {
   const nodes = new Map<string, EventNode>();
   for (const event of events) {
     nodes.set(event.eventId, {
-        event,
-        children: [],
-        unlinked: cycleIds.has(event.eventId),
+      event,
+      children: [],
+      unresolved: cycleIds.has(event.eventId),
+      parentNotLoaded: false,
     });
   }
   const roots: EventNode[] = [];
@@ -77,14 +79,16 @@ export function buildEventTree(items: ActivityTimelineItem[]): EventTree {
 
     if (canLink) {
       parent.children.push(node);
-    } else {
-      node.unlinked =
-        node.unlinked ||
-        event.relationship === 'unresolved' ||
-        event.relationship === 'linked' ||
-        parentId !== null;
-      roots.push(node);
+      continue;
     }
+
+    if (event.relationship === 'unresolved') {
+      node.unresolved = true;
+    } else if (event.relationship === 'linked' && !parent) {
+      // The server validated the parent, but it is not in the loaded page yet.
+      node.parentNotLoaded = true;
+    }
+    roots.push(node);
   }
 
   function sortNodes(nodesToSort: EventNode[]): void {

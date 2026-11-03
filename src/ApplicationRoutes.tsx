@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router-dom';
 import { AuthenticationProvider } from './AuthenticationContext';
 import { ActivityTimelinePreviewShell } from './components/layout/ApplicationShell';
 import { ActivityTimelinePage } from './features/activity-timeline/ActivityTimelinePage';
+import { ActivityTracePage } from './features/activity-timeline/ActivityTracePage';
+import { ActivityTracesPage } from './features/activity-timeline/ActivityTracesPage';
 import { AuthenticationRoutes, RequireHuman } from './features/authentication/AuthenticationRoutes';
 
 function AuthenticatedRoutes() {
@@ -12,7 +14,15 @@ function AuthenticatedRoutes() {
           path="/activity"
           element={
             <RequireHuman>
-              <ActivityTimelinePage />
+              <ActivityTracesPage />
+            </RequireHuman>
+          }
+        />
+        <Route
+          path="/activity/:traceId"
+          element={
+            <RequireHuman>
+              <ActivityTracePage />
             </RequireHuman>
           }
         />
