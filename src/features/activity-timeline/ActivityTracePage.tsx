@@ -156,6 +156,7 @@ export function ActivityTracePage() {
     nextCursor,
     loading,
     pending,
+    lastLoaded,
     error,
     expanded,
     toggle,
@@ -163,6 +164,9 @@ export function ActivityTracePage() {
     loadMore,
   } = useTraceDetail(traceId);
   const failure = error ? failureCopy(error) : null;
+  const approvals = events.filter(
+    (event): event is Extract<ActivityEvent, { kind: 'approval' }> => event.kind === 'approval',
+  );
 
   return (
     <main className="activity-main">
@@ -195,9 +199,39 @@ export function ActivityTracePage() {
         </p>
       ) : null}
 
+      {failure && trace ? (
+        <p className="stale-note" role="note">
+          Showing the last loaded activity; refresh failed.
+        </p>
+      ) : null}
+
       {trace ? <TraceSummaryPanel trace={trace} /> : null}
 
-      {trace && !failure ? (
+      {trace && approvals.length ? (
+        <section className="approval-panel" aria-labelledby="approval-heading">
+          <div className="panel-heading">
+            <div>
+              <p className="section-eyebrow">Reported resolutions</p>
+              <h2 id="approval-heading">Approval history</h2>
+            </div>
+          </div>
+          <ul className="approval-list">
+            {approvals.map((approval) => (
+              <li key={approval.eventId}>
+                <span>Approval {shortId(approval.eventId)}</span>
+                <strong>{approval.metadata.state ?? 'Not reported'}</strong>
+                <span>
+                  {approval.metadata.approvalId
+                    ? `ID ${shortId(approval.metadata.approvalId)}`
+                    : 'ID not reported'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {trace ? (
         <section className="timeline-panel" aria-labelledby="timeline-heading">
           <div className="timeline-heading">
             <div>
@@ -211,6 +245,13 @@ export function ActivityTracePage() {
           <p className="timeline-explainer">
             Events are ordered by server receipt time within each parent group. Producer-reported
             source time is shown separately.
+          </p>
+          <p className="activity-status" role="status">
+            {pending
+              ? 'Loading more activity…'
+              : lastLoaded !== null
+                ? `Loaded ${lastLoaded} more event${lastLoaded === 1 ? '' : 's'}.`
+                : ''}
           </p>
 
           {tree.roots.length ? (
@@ -228,9 +269,16 @@ export function ActivityTracePage() {
             <p className="empty-timeline">No activity is reported for this trace.</p>
           )}
 
-          {nextCursor ? (
-            <button className="load-more-button" type="button" onClick={loadMore} disabled={pending}>
-              {pending ? 'Loading more activity…' : 'Load more events'}
+          {events.length > 0 ? (
+            <button
+              className="load-more-button"
+              type="button"
+              onClick={loadMore}
+              aria-disabled={pending || !nextCursor}
+            >
+              {pending
+                ? 'Loading more activity…'
+                : nextCursor ? 'Load more events' : 'All events loaded'}
             </button>
           ) : null}
         </section>

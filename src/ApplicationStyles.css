@@ -862,3 +862,15 @@ a.trace-row { text-decoration: none; color: inherit; }
 .event-toggle { margin-top: 0.55rem; padding: 0; border: 0; background: none; color: #2c6e78; font: inherit; font-size: 0.78rem; text-decoration: underline; cursor: pointer; }
 .event-toggle:hover { color: #1f4f56; }
 .read-error { padding: 0.75rem 0.9rem; border-radius: 0.6rem; background: #fff4f2; color: #8a2f20; }
+
+.loss-details { margin-top: 1rem; padding: 0.9rem 1rem; border: 1px solid var(--line, #e3e8ea); border-radius: 0.75rem; background: #fffdf5; }
+.loss-details h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.loss-details dl { display: grid; gap: 0.45rem; margin: 0; }
+.loss-details dl > div { display: flex; gap: 0.5rem; justify-content: space-between; }
+.loss-details dt { color: var(--muted, #526771); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.loss-details dd { margin: 0; font-size: 0.82rem; }
+.approval-panel { margin-top: 1.2rem; padding: 1rem 1.1rem; border: 1px solid var(--line, #e3e8ea); border-radius: 0.9rem; background: #ffffff; }
+.approval-list { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; gap: 0.4rem; }
+.approval-list li { display: flex; gap: 1rem; justify-content: space-between; padding: 0.5rem 0; border-top: 1px solid var(--line, #e3e8ea); font-size: 0.8rem; }
+.activity-status { min-height: 1.2rem; margin: 0.4rem 0 0.6rem; color: var(--muted, #526771); font-size: 0.75rem; }
+.stale-note { margin: 0.8rem 0; padding: 0.7rem 0.9rem; border-radius: 0.6rem; background: #fff8e6; color: #7a5a12; }

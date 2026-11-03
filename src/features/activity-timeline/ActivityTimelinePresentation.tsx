@@ -56,18 +56,33 @@ export function TraceSummaryPanel({ trace }: { trace: TraceDetail }) {
           <strong>{formatTime(trace.receivedAt)}</strong>
         </div>
       </div>
-      <div className="coverage-grid" aria-label="Reported integration coverage">
+      <section className="coverage-grid" aria-label="Reported integration coverage">
         <div><span>Input</span><strong>{statusLabel(trace.coverage.input)}</strong></div>
         <div><span>Response</span><strong>{statusLabel(trace.coverage.response)}</strong></div>
         <div><span>Tools</span><strong>{statusLabel(trace.coverage.tools)}</strong></div>
-      </div>
+      </section>
       {trace.loss ? (
-        <p className="loss-note" role="note">
-          Telemetry loss reported: {trace.loss.causeCode ?? 'cause unknown'}
-          {trace.loss.missingCount === null ? '' : ` · ${trace.loss.missingCount} event(s) reported missing`}
-          {trace.loss.from ? ` · from ${formatTime(trace.loss.from)}` : ''}
-          {trace.loss.to ? ` · to ${formatTime(trace.loss.to)}` : ''}
-        </p>
+        <section className="loss-details" aria-label="Loss extent">
+          <h3>Telemetry loss</h3>
+          <dl>
+            <div>
+              <dt>Loss cause</dt>
+              <dd>{trace.loss.causeCode ?? 'Unknown'}</dd>
+            </div>
+            <div>
+              <dt>Missing events</dt>
+              <dd>{trace.loss.missingCount === null ? 'Unknown' : trace.loss.missingCount}</dd>
+            </div>
+            <div>
+              <dt>Missing time range</dt>
+              <dd>
+                {trace.loss.from || trace.loss.to
+                  ? `${formatTime(trace.loss.from)} to ${formatTime(trace.loss.to)}`
+                  : 'Unknown'}
+              </dd>
+            </div>
+          </dl>
+        </section>
       ) : null}
     </section>
   );

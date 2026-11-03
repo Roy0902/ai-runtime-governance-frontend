@@ -78,6 +78,7 @@ export interface TraceDetailState {
   nextCursor: string | null;
   loading: boolean;
   pending: boolean;
+  lastLoaded: number | null;
   error: unknown;
   expanded: Set<string>;
   toggle: (eventId: string) => void;
@@ -91,6 +92,7 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
+  const [lastLoaded, setLastLoaded] = useState<number | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const cursor = useRef<string | null>(null);
@@ -100,6 +102,7 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
     const current = ++generation.current;
     setLoading(true);
     setError(null);
+    setLastLoaded(null);
     try {
       if (!traceId) {
         throw new Error('Missing trace identity');
@@ -149,6 +152,7 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
     }
     const current = generation.current;
     setPending(true);
+    setLastLoaded(null);
     try {
       const page = await fetchEventPage(traceId, cursor.current);
       if (current !== generation.current) {
@@ -157,6 +161,7 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
       cursor.current = page.nextCursor;
       setNextCursor(page.nextCursor);
       setEvents((previous) => [...previous, ...page.items]);
+      setLastLoaded(page.items.length);
     } catch (caught) {
       if (current === generation.current) {
         setError(caught);
@@ -189,6 +194,7 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
     nextCursor,
     loading,
     pending,
+    lastLoaded,
     error,
     expanded,
     toggle,
