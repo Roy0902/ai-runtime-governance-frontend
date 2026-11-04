@@ -10,6 +10,7 @@ import {
   TraceSummaryPanel,
 } from './ActivityTimelinePresentation';
 import type { ActivityEvent } from './ActivityTimelineTypes';
+import { TraceUsagePanel } from './TraceUsagePanel';
 import { useTraceDetail } from './useActivityTimeline';
 
 function failureCopy(error: unknown): { message: string; signIn: boolean } {
@@ -207,6 +208,8 @@ export function ActivityTracePage() {
       ) : null}
 
       {trace ? <TraceSummaryPanel trace={trace} /> : null}
+
+      {trace && traceId ? <TraceUsagePanel traceId={traceId} /> : null}
 
       {trace && approvals.length ? (
         <section className="approval-panel" aria-labelledby="approval-heading">

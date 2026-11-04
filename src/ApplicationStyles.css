@@ -1104,6 +1104,90 @@ a.trace-row { text-decoration: none; color: inherit; }
   font-size: 0.75rem;
 }
 
+.usage-panel {
+  margin: 1.2rem 0;
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: 0 6px 24px rgb(19 49 58 / 4%);
+}
+
+.usage-table-wrap {
+  margin-top: 0.9rem;
+  overflow-x: auto;
+}
+
+.usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.usage-table th,
+.usage-table td {
+  padding: 0.7rem 0.55rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.usage-table thead th {
+  border-top: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.usage-table tbody th {
+  min-width: 180px;
+  white-space: normal;
+}
+
+.usage-subtle {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.usage-error {
+  color: var(--danger);
+}
+
+.usage-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+}
+
+.usage-summary-grid > div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: #f7fbfb;
+}
+
+.usage-summary-grid span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.usage-summary-grid strong {
+  color: var(--ink);
+  font-size: 1.1rem;
+}
+
 @media (max-width: 700px) {
   .gateway-panel {
     padding: 1rem;

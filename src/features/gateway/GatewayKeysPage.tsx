@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ApiError } from '../../ApplicationApiClient';
 import { useAuthentication } from '../../AuthenticationContext';
 import type { GatewayKeySummary, GatewaySetup } from '../../api/GatewayKeys';
+import type { UsageSummary } from '../../api/Usage';
 import { StepUpDialog } from '../authentication/StepUpDialog';
 
 type PendingAction =
@@ -20,6 +21,22 @@ function errorText(error: unknown): string {
     return error.message;
   }
   return 'Something went wrong. Try again.';
+}
+
+function formatTokens(value: number): string {
+  return value.toLocaleString();
+}
+
+function formatCost(value: number | null, currency: string): string {
+  if (value === null) {
+    return 'Not priced';
+  }
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: currency || 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  }).format(value);
 }
 
 function formatDate(value: string | null): string {
@@ -49,6 +66,8 @@ export function GatewayKeysPage() {
   const [copyStatus, setCopyStatus] = useState('');
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [stepUp, setStepUp] = useState(false);
+  const [usageSummary, setUsageSummary] = useState<UsageSummary | null>(null);
+  const [usageError, setUsageError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -66,6 +85,24 @@ export function GatewayKeysPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let active = true;
+    send<UsageSummary>('/api/v1/usage/summary', 'GET')
+      .then((value) => {
+        if (active) {
+          setUsageSummary(value);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setUsageError(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [send]);
 
   async function create(keyName: string) {
     setCreating(true);
@@ -147,6 +184,47 @@ export function GatewayKeysPage() {
           but a host operator must grant gateway permission before new keys can be created.
         </p>
       ) : null}
+
+      <section className="gateway-panel" aria-labelledby="usage-summary-heading">
+        <div className="panel-heading">
+          <div>
+            <p className="section-eyebrow">Last 30 days</p>
+            <h2 id="usage-summary-heading">Usage</h2>
+          </div>
+        </div>
+        {usageError ? (
+          <p className="usage-subtle" role="status">Usage summary is unavailable.</p>
+        ) : null}
+        {usageSummary ? (
+          <>
+            <div className="usage-summary-grid">
+              <div>
+                <span>Calls</span>
+                <strong>{formatTokens(usageSummary.calls)}</strong>
+              </div>
+              <div>
+                <span>Input tokens</span>
+                <strong>{formatTokens(usageSummary.inputTokens)}</strong>
+              </div>
+              <div>
+                <span>Output tokens</span>
+                <strong>{formatTokens(usageSummary.outputTokens)}</strong>
+              </div>
+              <div>
+                <span>Total tokens</span>
+                <strong>{formatTokens(usageSummary.totalTokens)}</strong>
+              </div>
+              <div>
+                <span>Estimated cost</span>
+                <strong>{formatCost(usageSummary.totalCostUsd, usageSummary.currency)}</strong>
+              </div>
+            </div>
+            <p className="usage-subtle">
+              Cost is shown only when the deployment has a price configured for the model.
+            </p>
+          </>
+        ) : null}
+      </section>
 
       <section className="gateway-panel" aria-labelledby="create-key-heading">
         <div className="panel-heading">
