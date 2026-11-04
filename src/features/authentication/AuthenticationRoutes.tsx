@@ -6,6 +6,8 @@ import type { AuthenticationContext } from '../../api/AuthenticationContext';
 import type { Operation } from '../../api/Operation';
 import { useAuthentication } from '../../AuthenticationContext';
 import { ApplicationShell } from '../../components/layout/ApplicationShell';
+import { GatewayKeysPage } from '../gateway/GatewayKeysPage';
+import { StepUpDialog } from './StepUpDialog';
 
 const ACCEPTED = "If this request is eligible, we'll send an email with the next steps.";
 
@@ -521,91 +523,6 @@ function RestartPage() {
   );
 }
 
-function StepUpDialog({ open, onConfirmed, onCancel }: { open: boolean; onConfirmed: () => void; onCancel: () => void }) {
-  const { send } = useAuthentication();
-  const [password, setPassword] = useState('');
-  const [factor, setFactor] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!open || !dialog || dialog.open) {
-      return;
-    }
-    dialog.showModal();
-    return () => {
-      if (dialog.open) {
-        dialog.close();
-      }
-    };
-  }, [open]);
-
-  if (!open) {
-    return null;
-  }
-
-  async function confirm() {
-    setError(null);
-    try {
-      await send('/api/v1/auth/reauthentication', 'POST', {
-        password,
-        secondFactor: { kind: factor.replace(/-/g, '').length === 32 ? 'RECOVERY' : 'TOTP', code: factor },
-      });
-      onConfirmed();
-    } catch (caught) {
-      setError(errorText(caught));
-    }
-  }
-
-  return (
-    <dialog
-      ref={dialogRef}
-      aria-label="Confirm your identity"
-      onCancel={(event) => {
-        event.preventDefault();
-        onCancel();
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== 'Tab') {
-          return;
-        }
-        const focusable = Array.from(
-          event.currentTarget.querySelectorAll<HTMLElement>(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-          ),
-        ).filter((element) => !element.hasAttribute('disabled'));
-        if (focusable.length === 0) {
-          return;
-        }
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }}
-    >
-      <h2>Confirm your identity</h2>
-      <p>Enter your password and current authenticator code to continue.</p>
-      <label>
-        Password
-        <input aria-label="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-      </label>
-      <label>
-        Authenticator or recovery code
-        <input aria-label="Authenticator or recovery code" value={factor} onChange={(event) => setFactor(event.target.value)} />
-      </label>
-      <button type="button" onClick={confirm}>Confirm</button>
-      <button type="button" onClick={onCancel}>Cancel</button>
-      {error ? <Message text={error} /> : null}
-    </dialog>
-  );
-}
-
 function AccountPage() {
   const { context } = useAuthentication();
   const account = context?.account;
@@ -627,7 +544,8 @@ function AccountPage() {
       </dl>
       <p>
         <a href="/account/password">Change password</a> · <a href="/account/authenticator">Replace authenticator</a> ·{' '}
-        <a href="/account/recovery-codes">Generate new recovery codes</a>
+        <a href="/account/recovery-codes">Generate new recovery codes</a> ·{' '}
+        <a href="/account/gateway-keys">Gateway keys</a>
       </p>
     </main>
   );
@@ -975,6 +893,14 @@ export function AuthenticationRoutes() {
           element={
             <RequireHuman>
               <RecoveryGenerationPage />
+            </RequireHuman>
+          }
+        />
+        <Route
+          path="/account/gateway-keys"
+          element={
+            <RequireHuman>
+              <GatewayKeysPage />
             </RequireHuman>
           }
         />
