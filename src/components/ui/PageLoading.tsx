@@ -1,0 +1,12 @@
+import { Center, Spinner, Stack, Text } from '@chakra-ui/react';
+
+export function PageLoading({ label = 'Loading page' }: { label?: string }) {
+  return (
+    <Center minH="40vh" px="4">
+      <Stack align="center" gap="3">
+        <Spinner colorPalette="green" size="lg" />
+        <Text role="status" color="governance.muted" fontSize="sm">{label}</Text>
+      </Stack>
+    </Center>
+  );
+}

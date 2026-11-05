@@ -1,7 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { Box, Button, Container, Flex, Heading, HStack, Text } from '@chakra-ui/react';
 import { RotateCcw } from 'lucide-react';
-import { Link as RouterLink } from 'react-router-dom';
 import { ApplicationHeader } from './layout/ApplicationHeader';
 
 type ApplicationErrorPageProps = {

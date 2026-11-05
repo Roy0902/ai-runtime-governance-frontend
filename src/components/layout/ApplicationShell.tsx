@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, Link, Text } from '@chakra-ui/react';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthentication } from '../../AuthenticationContext';
 import { ApiError } from '../../ApplicationApiClient';
 import { ApplicationHeader } from './ApplicationHeader';

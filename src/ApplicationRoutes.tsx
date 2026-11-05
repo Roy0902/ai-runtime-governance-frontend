@@ -1,10 +1,18 @@
+import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AuthenticationProvider } from './AuthenticationContext';
 import { ActivityTimelinePreviewShell } from './components/layout/ApplicationShell';
-import { ActivityTimelinePage } from './features/activity-timeline/ActivityTimelinePage';
-import { ActivityTracePage } from './features/activity-timeline/ActivityTracePage';
-import { ActivityTracesPage } from './features/activity-timeline/ActivityTracesPage';
-import { AuthenticationRoutes, RequireHuman } from './features/authentication/AuthenticationRoutes';
+import { RequireHuman } from './components/layout/RequireHuman';
+import { PageLoading } from './components/ui/PageLoading';
+
+const ActivityTimelinePage = lazy(() => import('./features/activity-timeline/ActivityTimelinePage')
+  .then((module) => ({ default: module.ActivityTimelinePage })));
+const ActivityTracePage = lazy(() => import('./features/activity-timeline/ActivityTracePage')
+  .then((module) => ({ default: module.ActivityTracePage })));
+const ActivityTracesPage = lazy(() => import('./features/activity-timeline/ActivityTracesPage')
+  .then((module) => ({ default: module.ActivityTracesPage })));
+const AuthenticationRoutes = lazy(() => import('./features/authentication/AuthenticationRoutes')
+  .then((module) => ({ default: module.AuthenticationRoutes })));
 
 function AuthenticatedRoutes() {
   return (
@@ -14,7 +22,9 @@ function AuthenticatedRoutes() {
           path="/activity"
           element={
             <RequireHuman>
-              <ActivityTracesPage />
+              <Suspense fallback={<PageLoading label="Loading activity" />}>
+                <ActivityTracesPage />
+              </Suspense>
             </RequireHuman>
           }
         />
@@ -22,11 +32,17 @@ function AuthenticatedRoutes() {
           path="/activity/:traceId"
           element={
             <RequireHuman>
-              <ActivityTracePage />
+              <Suspense fallback={<PageLoading label="Loading trace" />}>
+                <ActivityTracePage />
+              </Suspense>
             </RequireHuman>
           }
         />
-        <Route path="/*" element={<AuthenticationRoutes />} />
+        <Route path="/*" element={
+          <Suspense fallback={<PageLoading label="Loading account" />}>
+            <AuthenticationRoutes />
+          </Suspense>
+        } />
       </Routes>
     </AuthenticationProvider>
   );
@@ -40,7 +56,9 @@ export function ApplicationRoutes() {
           path="/activity-preview"
           element={
             <ActivityTimelinePreviewShell>
-              <ActivityTimelinePage />
+              <Suspense fallback={<PageLoading label="Loading preview" />}>
+                <ActivityTimelinePage />
+              </Suspense>
             </ActivityTimelinePreviewShell>
           }
         />

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, Button, Checkbox, Code, Container, Field, Grid, Heading, HStack, Image, Input, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { ApiError } from '../../ApplicationApiClient';
@@ -8,9 +8,12 @@ import type { Operation } from '../../api/Operation';
 import { useAuthentication } from '../../AuthenticationContext';
 import { ApplicationErrorPage } from '../../components/ApplicationErrorPage';
 import { ApplicationHeader } from '../../components/layout/ApplicationHeader';
-import { ApplicationShell } from '../../components/layout/ApplicationShell';
-import { GatewayKeysPage } from '../gateway/GatewayKeysPage';
+import { RequireHuman } from '../../components/layout/RequireHuman';
+import { PageLoading } from '../../components/ui/PageLoading';
 import { StepUpDialog } from './StepUpDialog';
+
+const GatewayKeysPage = lazy(() => import('../gateway/GatewayKeysPage')
+  .then((module) => ({ default: module.GatewayKeysPage })));
 
 const ACCEPTED = "If this request is eligible, we'll send an email with the next steps.";
 
@@ -43,46 +46,29 @@ function Status({ text }: { text: string }) {
   );
 }
 
+function AuthenticationContextLoading() {
+  const { loading, refreshError, refresh } = useAuthentication();
+  if (loading) {
+    return <PageLoading label="Loading account context" />;
+  }
+  return (
+    <ApplicationErrorPage
+      code="SESSION"
+      eyebrow="Session unavailable"
+      title="Unable to load your session"
+      description={refreshError ?? 'Your session could not be loaded. Try again.'}
+    >
+      <Button type="button" variant="outline" onClick={() => { void refresh().catch(() => {}); }}>
+        Retry
+      </Button>
+    </ApplicationErrorPage>
+  );
+}
+
 function AuthPage({ children }: { children: ReactNode }) {
   return (
     <Container as="main" maxW="xl" flex="1" px="4" py={{ base: '8', md: '14' }}>
-      <Box
-        p={{ base: '5', md: '8' }}
-        borderWidth="1px"
-        borderColor="governance.line"
-        borderRadius="xl"
-        bg="white"
-        boxShadow="0 18px 52px rgba(23,43,52,0.08)"
-        css={{
-          '& h1': { marginBottom: '1rem', fontFamily: 'heading', fontSize: '2xl', fontWeight: '700', lineHeight: '1.2' },
-          '& p': { color: 'governance.muted' },
-          '& form': { display: 'grid', gap: '1rem' },
-          '& label': { display: 'grid', gap: '0.4rem', color: 'governance.ink', fontSize: '0.875rem', fontWeight: '600' },
-          '& input:not([type=checkbox])': {
-            width: '100%',
-            minHeight: '44px',
-            paddingInline: '0.75rem',
-            border: '1px solid var(--chakra-colors-governance-line)',
-            borderRadius: 'var(--chakra-radii-md)',
-            background: 'white',
-            color: 'var(--chakra-colors-governance-ink)',
-          },
-          '& input[type=checkbox]': { width: '1rem', height: '1rem', accentColor: 'var(--chakra-colors-governance-primary)' },
-          '& label:has(input[type=checkbox])': { display: 'flex', alignItems: 'center', gap: '0.65rem' },
-          '& button:not([data-scope])': {
-            minHeight: '42px',
-            paddingInline: '1rem',
-            border: '1px solid var(--chakra-colors-governance-primary)',
-            borderRadius: 'var(--chakra-radii-md)',
-            background: 'var(--chakra-colors-governance-primary)',
-            color: 'white',
-            fontWeight: '600',
-          },
-          '& a': { color: 'var(--chakra-colors-governance-primary)', fontWeight: '600' },
-          '& dl': { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: '0.75rem' },
-          '& dd': { margin: 0, color: 'governance.ink', fontWeight: '600' },
-        }}
-      >
+      <Box p={{ base: '5', md: '8' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white" boxShadow="0 18px 52px rgba(23,43,52,0.08)">
         <Stack gap="4">{children}</Stack>
       </Box>
     </Container>
@@ -106,20 +92,6 @@ function SavedCodesCheckbox({ checked, onChange }: { checked: boolean; onChange:
       <Checkbox.Label>I have saved my recovery codes</Checkbox.Label>
     </Checkbox.Root>
   );
-}
-
-export function RequireHuman({ children }: { children: ReactNode }) {
-  const { context } = useAuthentication();
-  if (!context) {
-    return <AuthenticationContextLoading />;
-  }
-  if (context.state === 'SETUP') {
-    return <Navigate to="/setup/enroll" replace />;
-  }
-  if (context.state !== 'HUMAN') {
-    return <Navigate to="/sign-in" replace />;
-  }
-  return <ApplicationShell>{children}</ApplicationShell>;
 }
 
 function RequireSetup({ children }: { children: ReactNode }) {
@@ -148,27 +120,6 @@ function Home() {
     return <Navigate to="/setup/enroll" replace />;
   }
   return <Navigate to="/sign-in" replace />;
-}
-
-function AuthenticationContextLoading() {
-  const { loading, refreshError, refresh } = useAuthentication();
-
-  if (loading) {
-    return <p>Loading account context…</p>;
-  }
-
-  return (
-    <ApplicationErrorPage
-      code="SESSION"
-      eyebrow="Session unavailable"
-      title="Unable to load your session"
-      description={refreshError ?? 'Your session could not be loaded. Try again.'}
-    >
-      <Button type="button" variant="outline" onClick={() => { void refresh().catch(() => {}); }}>
-        Retry
-      </Button>
-    </ApplicationErrorPage>
-  );
 }
 
 function NotFoundPage() {
@@ -1001,7 +952,9 @@ export function AuthenticationRoutes() {
           path="/account/gateway-keys"
           element={
             <RequireHuman>
-              <GatewayKeysPage />
+              <Suspense fallback={<PageLoading label="Loading gateway keys" />}>
+                <GatewayKeysPage />
+              </Suspense>
             </RequireHuman>
           }
         />

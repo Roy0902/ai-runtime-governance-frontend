@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Box, Button, Code, Container, Field, Flex, Grid, Heading, HStack, Input, Link as ChakraLink, Stack, Table, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Code, Container, Field, Flex, Grid, Heading, HStack, Input, Link as ChakraLink, Table, Text } from '@chakra-ui/react';
 import { Copy, RefreshCw, X } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import { useAuthentication } from '../../AuthenticationContext';

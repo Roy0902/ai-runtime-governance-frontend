@@ -35,6 +35,11 @@ provide a public admin area for other people's accounts or traces.
 Use the address provided by your deployment operator in a current web browser.
 No separate installation is needed.
 
+Navigation is hidden by default. Select the menu icon in the top-left corner to
+open the sidebar and access the pages available to your account. Close it with
+the close icon, Escape, or by selecting outside the sidebar. Selecting a page
+also closes the sidebar.
+
 If the app cannot reach the governance service, it shows a session-loading error
 with a retry action instead of pretending you are signed out or showing an empty
 account.
