@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Badge, Box, Button, Container, Flex, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { ApiError } from '../../ApplicationApiClient';
 import {
   formatTime,
@@ -25,82 +26,87 @@ export function ActivityTracesPage() {
   const failure = error ? failureCopy(error) : null;
 
   return (
-    <main className="activity-main">
-      <div className="activity-heading">
+    <Container as="main" maxW="1440px" py={{ base: '6', md: '10' }} px={{ base: '4', md: '8' }}>
+      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap" mb="6">
         <div>
-          <p className="section-eyebrow">Observability</p>
-          <h1>Activity</h1>
-          <p className="activity-intro">
+          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Observability</Text>
+          <Heading fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Activity</Heading>
+          <Text mt="2" maxW="44rem" color="governance.muted">
             Inspect reported agent, model, tool, guard, and approval activity without exposing payloads.
-          </p>
+          </Text>
         </div>
-        <button className="button-secondary" type="button" onClick={refresh} disabled={loading}>
+        <Button type="button" variant="outline" onClick={refresh} disabled={loading}>
           Refresh
-        </button>
-      </div>
+        </Button>
+      </Flex>
 
-      <section className="trace-panel" aria-labelledby="traces-heading">
-        <div className="panel-heading">
-          <div>
-            <p className="section-eyebrow">Recent activity</p>
-            <h2 id="traces-heading">Traces</h2>
-          </div>
-          <span className="trace-count">{items.length} traces</span>
-        </div>
+      <Box as="section" aria-labelledby="traces-heading" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+        <Flex justify="space-between" align="center" gap="3" mb="5">
+          <Box>
+            <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Recent activity</Text>
+            <Heading id="traces-heading" fontFamily="heading" fontSize="xl">Traces</Heading>
+          </Box>
+          <Badge colorPalette="gray" variant="subtle">{items.length} traces</Badge>
+        </Flex>
 
-        {loading ? <p role="status">Loading activity…</p> : null}
+        {loading ? <Text role="status" color="governance.muted">Loading activity…</Text> : null}
 
         {failure ? (
-          <p className="read-error" role="alert">
+          <Flex role="alert" align="center" justify="space-between" gap="4" p="3" borderRadius="md" bg="red.50" color="red.800">
             {failure.message}{' '}
             {failure.signIn ? (
-              <Link to="/sign-in">Sign in</Link>
+              <ChakraLink asChild><Link to="/sign-in">Sign in</Link></ChakraLink>
             ) : (
-              <button className="button-secondary" type="button" onClick={refresh}>Try again</button>
+              <Button size="sm" variant="outline" onClick={refresh}>Try again</Button>
             )}
-          </p>
+          </Flex>
         ) : null}
 
         {!loading && !failure && items.length === 0 ? (
-          <p role="status">No traces recorded.</p>
+          <Box role="status" py="12" textAlign="center">
+            <Text fontWeight="semibold">No traces recorded</Text>
+            <Text mt="1" color="governance.muted" fontSize="sm">Reported activity will appear here.</Text>
+          </Box>
         ) : null}
 
         {!failure && items.length > 0 ? (
-          <ul className="trace-list" aria-label="Traces">
+          <Stack as="ul" aria-label="Traces" listStyle="none" gap="2" p="0" m="0">
             {items.map((trace) =>
               'tombstone' in trace ? (
-                <li key={trace.traceId} className="trace-tombstone">
+                <Box as="li" key={trace.traceId} p="4" borderWidth="1px" borderStyle="dashed" borderColor="governance.line" borderRadius="lg" color="governance.muted">
                   Trace unavailable
-                </li>
+                </Box>
               ) : (
-                <li key={trace.traceId}>
-                  <Link
-                    className="trace-row"
-                    to={`/activity/${trace.traceId}`}
-                    aria-label={`Open trace ${trace.traceId}`}
-                  >
-                    <span className="trace-row-heading">
-                      <span className="trace-id">Trace {trace.traceId.slice(-8)}</span>
-                      <StatusBadge value={trace.executionStatus} />
-                    </span>
-                    <span className="trace-row-time">{formatTime(trace.receivedAt)}</span>
-                    <span className="trace-row-meta">
-                      <span>{outcomeLabel(trace.guardOutcome)}</span>
-                      <span>{statusLabel(trace.telemetryStatus)} telemetry</span>
-                    </span>
-                  </Link>
-                </li>
+                <Box as="li" key={trace.traceId}>
+                  <ChakraLink asChild color="inherit" _hover={{ textDecoration: 'none' }}>
+                    <Link to={`/activity/${trace.traceId}`} aria-label={`Open trace ${trace.traceId}`}>
+                      <Box p="4" borderWidth="1px" borderColor="governance.line" borderRadius="lg" transition="border-color 120ms ease, box-shadow 120ms ease" _hover={{ borderColor: 'governance.primary', boxShadow: 'sm' }}>
+                        <Flex justify="space-between" align="center" gap="4" wrap="wrap">
+                          <Text fontFamily="mono" fontSize="sm" fontWeight="semibold">Trace {trace.traceId.slice(-8)}</Text>
+                          <StatusBadge value={trace.executionStatus} />
+                        </Flex>
+                        <Flex mt="2" justify="space-between" gap="3" wrap="wrap">
+                          <Text color="governance.muted" fontSize="sm">{formatTime(trace.receivedAt)}</Text>
+                          <HStack gap="2" flexWrap="wrap">
+                            <Badge variant="outline">{outcomeLabel(trace.guardOutcome)}</Badge>
+                            <Badge variant="outline">{statusLabel(trace.telemetryStatus)} telemetry</Badge>
+                          </HStack>
+                        </Flex>
+                      </Box>
+                    </Link>
+                  </ChakraLink>
+                </Box>
               ),
             )}
-          </ul>
+          </Stack>
         ) : null}
 
         {nextCursor ? (
-          <button className="load-more-button" type="button" onClick={loadMore} disabled={pending}>
+          <Button mt="5" variant="outline" onClick={loadMore} disabled={pending}>
             {pending ? 'Loading more activity…' : 'Load more traces'}
-          </button>
+          </Button>
         ) : null}
-      </section>
-    </main>
+      </Box>
+    </Container>
   );
 }

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { Button, Dialog, Field, Input, Stack, Text } from '@chakra-ui/react';
+import { X } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import { useAuthentication } from '../../AuthenticationContext';
 
@@ -28,24 +30,6 @@ export function StepUpDialog({
   const [password, setPassword] = useState('');
   const [factor, setFactor] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!open || !dialog || dialog.open) {
-      return;
-    }
-    dialog.showModal();
-    return () => {
-      if (dialog.open) {
-        dialog.close();
-      }
-    };
-  }, [open]);
-
-  if (!open) {
-    return null;
-  }
 
   async function confirm() {
     setError(null);
@@ -64,62 +48,62 @@ export function StepUpDialog({
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      aria-label="Confirm your identity"
-      onCancel={(event) => {
-        event.preventDefault();
-        onCancel();
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== 'Tab') {
-          return;
-        }
-        const focusable = Array.from(
-          event.currentTarget.querySelectorAll<HTMLElement>(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-          ),
-        ).filter((element) => !element.hasAttribute('disabled'));
-        if (focusable.length === 0) {
-          return;
-        }
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
+    <Dialog.Root
+      open={open}
+      onOpenChange={(details) => {
+        if (!details.open) {
+          onCancel();
         }
       }}
+      initialFocusEl={() => document.querySelector<HTMLInputElement>('#step-up-password')}
     >
-      <h2>Confirm your identity</h2>
-      <p>Enter your password and current authenticator code to continue.</p>
-      <label>
-        Password
-        <input
-          aria-label="Password"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
-      <label>
-        Authenticator or recovery code
-        <input
-          aria-label="Authenticator or recovery code"
-          value={factor}
-          onChange={(event) => setFactor(event.target.value)}
-        />
-      </label>
-      <button type="button" onClick={confirm}>
-        Confirm
-      </button>
-      <button type="button" onClick={onCancel}>
-        Cancel
-      </button>
-      {error ? <p role="alert">{error}</p> : null}
-    </dialog>
+      <Dialog.Backdrop bg="blackAlpha.600" />
+      <Dialog.Positioner p="4">
+        <Dialog.Content maxW="md" borderRadius="xl" bg="white" boxShadow="0 24px 80px rgba(18,34,40,0.24)">
+          <Dialog.Header>
+            <Stack gap="1">
+              <Dialog.Title fontFamily="heading" fontSize="xl" fontWeight="700">
+                Confirm your identity
+              </Dialog.Title>
+              <Text color="governance.muted" fontSize="sm">
+                Enter your password and current authenticator code to continue.
+              </Text>
+            </Stack>
+            <Dialog.CloseTrigger asChild>
+              <Button position="absolute" top="3" right="3" size="sm" variant="ghost" aria-label="Close dialog">
+                <X size={16} aria-hidden="true" />
+              </Button>
+            </Dialog.CloseTrigger>
+          </Dialog.Header>
+          <Dialog.Body>
+            <Stack as="form" id="step-up-form" gap="4" onSubmit={(event) => { event.preventDefault(); void confirm(); }}>
+              <Field.Root>
+                <Field.Label>Password</Field.Label>
+                <Input
+                  id="step-up-password"
+                  aria-label="Password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </Field.Root>
+              <Field.Root>
+                <Field.Label>Authenticator or recovery code</Field.Label>
+                <Input
+                  aria-label="Authenticator or recovery code"
+                  value={factor}
+                  onChange={(event) => setFactor(event.target.value)}
+                />
+              </Field.Root>
+              {error ? <Text role="alert" p="3" borderRadius="md" bg="red.50" color="red.800">{error}</Text> : null}
+            </Stack>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+            <Button type="submit" form="step-up-form" colorPalette="green">Confirm</Button>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
   );
 }

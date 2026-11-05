@@ -1,4 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
+import { Badge, Box, Button, Container, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import type { EventNode } from './ActivityTimelineModel';
 import {
@@ -81,70 +83,77 @@ function EventCard({
 }) {
   const { event } = node;
   const open = expanded.has(event.eventId);
+  const kindPalette: Record<string, 'green' | 'orange' | 'red' | 'blue' | 'purple' | 'gray'> = {
+    prompt: 'blue',
+    guard: 'green',
+    approval: 'orange',
+    agent: 'purple',
+    model: 'gray',
+    tool: 'orange',
+  };
+  const kindColor = kindPalette[event.kind] ?? 'gray';
 
   return (
-    <li className="timeline-node">
-      <article className="event-card">
-        <div className="event-card-top">
-          <div>
-            <span className={`event-kind event-kind-${event.kind}`}>{event.kind}</span>
-            <h3>{eventHeading(event)}</h3>
-          </div>
-          <StatusBadge value={eventState(event)} />
-        </div>
+    <Box as="li" listStyle="none">
+      <Stack gap="3">
+        <Box as="article" p={{ base: '3', md: '4' }} borderLeftWidth="3px" borderColor={`${kindColor}.400`} borderTopWidth="1px" borderRightWidth="1px" borderBottomWidth="1px" borderTopColor="governance.line" borderRightColor="governance.line" borderBottomColor="governance.line" borderRadius="lg" bg="white">
+          <Flex justify="space-between" align="flex-start" gap="3" wrap="wrap">
+            <HStack align="flex-start" gap="3">
+              <Badge colorPalette={kindColor} variant="subtle">{event.kind}</Badge>
+              <Box>
+                <Heading as="h3" fontFamily="heading" fontSize="md">{eventHeading(event)}</Heading>
+                <Text mt="1" color="governance.muted" fontSize="xs">{formatTime(event.receivedAt)}</Text>
+              </Box>
+            </HStack>
+            <StatusBadge value={eventState(event)} />
+          </Flex>
 
-        {node.unresolved ? <p className="event-unlinked">Unlinked activity.</p> : null}
-        {node.parentNotLoaded ? (
-          <p className="event-unlinked">Parent event is not loaded in this page.</p>
+          {node.unresolved ? <Text mt="3" color="orange.800" fontSize="sm">Unlinked activity.</Text> : null}
+          {node.parentNotLoaded ? (
+            <Text mt="3" color="orange.800" fontSize="sm">Parent event is not loaded in this page.</Text>
+          ) : null}
+
+          <Button
+            mt="3"
+            size="sm"
+            variant="ghost"
+            aria-expanded={open}
+            aria-controls={`event-details-${event.eventId}`}
+            onClick={() => onToggle(event.eventId)}
+          >
+            {open ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+            {open ? 'Hide details' : 'Event details'}
+          </Button>
+
+          {open ? (
+            <Grid id={`event-details-${event.eventId}`} mt="3" templateColumns={{ base: '1fr', md: 'repeat(2, minmax(0, 1fr))' }} gap="3" p="3" borderRadius="md" bg="governance.canvas">
+              {[
+                ['Received (UTC)', formatTime(event.receivedAt)],
+                ['Source time (UTC)', formatTime(event.sourceAt)],
+                ['Duration', event.durationMs === null ? 'Not reported' : `${event.durationMs} ms`],
+                ...(event.identity ? [['Reporter', event.identity]] : []),
+              ].map(([label, value]) => (
+                <Box key={label}>
+                  <Text color="governance.muted" fontSize="xs">{label}</Text>
+                  <Text mt="1" fontSize="sm" fontWeight="medium">{value}</Text>
+                </Box>
+              ))}
+              {eventMetadata(event).map((value) => (
+                <Text key={value} gridColumn={{ md: '1 / -1' }} fontSize="sm">{value}</Text>
+              ))}
+            </Grid>
+          ) : null}
+        </Box>
+
+        {node.children.length ? (
+          <Stack as="ol" gap="3" pl={{ base: '4', md: '7' }} ml={{ base: '2', md: '4' }} borderLeftWidth="2px" borderColor="governance.line">
+            {node.children.map((child) => (
+              <EventCard key={child.event.eventId} node={child} expanded={expanded} onToggle={onToggle} />
+            ))}
+          </Stack>
         ) : null}
-
-        <button
-          className="event-toggle"
-          type="button"
-          aria-expanded={open}
-          onClick={() => onToggle(event.eventId)}
-        >
-          {open ? `Collapse event ${event.eventId}` : `Expand event ${event.eventId}`}
-        </button>
-
-        {open ? (
-          <dl className="event-details">
-            <div>
-              <dt>Received (UTC)</dt>
-              <dd>{formatTime(event.receivedAt)}</dd>
-            </div>
-            <div>
-              <dt>Source time (UTC)</dt>
-              <dd>{formatTime(event.sourceAt)}</dd>
-            </div>
-            <div>
-              <dt>Duration</dt>
-              <dd>{event.durationMs === null ? 'Not reported' : `${event.durationMs} ms`}</dd>
-            </div>
-            {event.identity ? (
-              <div>
-                <dt>Reporter</dt>
-                <dd>{event.identity}</dd>
-              </div>
-            ) : null}
-          </dl>
-        ) : null}
-
-        {open && eventMetadata(event).length ? (
-          <ul className="event-metadata">
-            {eventMetadata(event).map((value) => <li key={value}>{value}</li>)}
-          </ul>
-        ) : null}
-      </article>
-
-      {node.children.length ? (
-        <ol className="timeline-children">
-          {node.children.map((child) => (
-            <EventCard key={child.event.eventId} node={child} expanded={expanded} onToggle={onToggle} />
-          ))}
-        </ol>
-      ) : null}
-    </li>
+      </Stack>
+    </Box>
   );
 }
 
@@ -171,40 +180,40 @@ export function ActivityTracePage() {
   );
 
   return (
-    <main className="activity-main">
-      <div className="activity-heading">
+    <Container as="main" maxW="1440px" py={{ base: '6', md: '10' }} px={{ base: '4', md: '8' }}>
+      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap" mb="6">
         <div>
-          <p className="section-eyebrow">Observability</p>
-          <h1>Activity</h1>
-          <p className="activity-intro">
+          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Observability</Text>
+          <Heading fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Activity</Heading>
+          <Text mt="2" maxW="44rem" color="governance.muted">
             Inspect reported agent, model, tool, guard, and approval activity without exposing payloads.
-          </p>
+          </Text>
         </div>
-        <div className="activity-actions">
-          <Link className="button-secondary" to="/activity">Back to traces</Link>
-          <button className="button-secondary" type="button" onClick={refresh} disabled={loading}>
+        <HStack gap="2">
+          <Button asChild size="sm" variant="outline"><Link to="/activity">Back to traces</Link></Button>
+          <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
             Refresh
-          </button>
-        </div>
-      </div>
+          </Button>
+        </HStack>
+      </Flex>
 
-      {loading && !trace ? <p role="status">Loading activity…</p> : null}
+      {loading && !trace ? <Text role="status" color="governance.muted">Loading activity…</Text> : null}
 
       {failure ? (
-        <p className="read-error" role="alert">
+        <Flex role="alert" align="center" justify="space-between" gap="4" p="3" borderRadius="md" bg="red.50" color="red.800">
           {failure.message}{' '}
           {failure.signIn ? (
-            <Link to="/sign-in">Sign in</Link>
+            <ChakraLink asChild><Link to="/sign-in">Sign in</Link></ChakraLink>
           ) : (
-            <button className="button-secondary" type="button" onClick={refresh}>Try again</button>
+            <Button size="sm" variant="outline" onClick={refresh}>Try again</Button>
           )}
-        </p>
+        </Flex>
       ) : null}
 
       {failure && trace ? (
-        <p className="stale-note" role="note">
+        <Text role="note" mt="4" p="3" borderRadius="md" bg="orange.50" color="orange.900" fontSize="sm">
           Showing the last loaded activity; refresh failed.
-        </p>
+        </Text>
       ) : null}
 
       {trace ? <TraceSummaryPanel trace={trace} /> : null}
@@ -212,54 +221,50 @@ export function ActivityTracePage() {
       {trace && traceId ? <TraceUsagePanel traceId={traceId} /> : null}
 
       {trace && approvals.length ? (
-        <section className="approval-panel" aria-labelledby="approval-heading">
-          <div className="panel-heading">
-            <div>
-              <p className="section-eyebrow">Reported resolutions</p>
-              <h2 id="approval-heading">Approval history</h2>
-            </div>
-          </div>
-          <ul className="approval-list">
+        <Box as="section" aria-labelledby="approval-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+          <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Reported resolutions</Text>
+          <Heading id="approval-heading" fontFamily="heading" fontSize="xl" mb="4">Approval history</Heading>
+          <Stack as="ul" listStyle="none" gap="2" p="0" m="0">
             {approvals.map((approval) => (
-              <li key={approval.eventId}>
-                <span>Approval {shortId(approval.eventId)}</span>
-                <strong>{approval.metadata.state ?? 'Not reported'}</strong>
-                <span>
+              <Flex as="li" key={approval.eventId} align="center" justify="space-between" gap="3" flexWrap="wrap" p="3" borderRadius="md" bg="governance.canvas">
+                <Text fontFamily="mono" fontSize="sm">Approval {shortId(approval.eventId)}</Text>
+                <Badge colorPalette="orange" variant="subtle">{approval.metadata.state ?? 'Not reported'}</Badge>
+                <Text color="governance.muted" fontSize="sm">
                   {approval.metadata.approvalId
                     ? `ID ${shortId(approval.metadata.approvalId)}`
                     : 'ID not reported'}
-                </span>
-              </li>
+                </Text>
+              </Flex>
             ))}
-          </ul>
-        </section>
+          </Stack>
+        </Box>
       ) : null}
 
       {trace ? (
-        <section className="timeline-panel" aria-labelledby="timeline-heading">
-          <div className="timeline-heading">
-            <div>
-              <p className="section-eyebrow">Receipt order · sibling events</p>
-              <h2 id="timeline-heading">Timeline</h2>
-            </div>
-            <span className="event-count">
+        <Box as="section" aria-labelledby="timeline-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+          <Flex justify="space-between" align="flex-end" gap="4" wrap="wrap">
+            <Box>
+              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Receipt order · sibling events</Text>
+              <Heading id="timeline-heading" fontFamily="heading" fontSize="xl">Agent event timeline</Heading>
+            </Box>
+            <Badge colorPalette="gray" variant="subtle">
               {events.length} event{events.length === 1 ? '' : 's'}
-            </span>
-          </div>
-          <p className="timeline-explainer">
+            </Badge>
+          </Flex>
+          <Text mt="3" color="governance.muted" fontSize="sm">
             Events are ordered by server receipt time within each parent group. Producer-reported
             source time is shown separately.
-          </p>
-          <p className="activity-status" role="status">
+          </Text>
+          <Text role="status" minH="5" mt="2" color="governance.muted" fontSize="xs">
             {pending
               ? 'Loading more activity…'
               : lastLoaded !== null
                 ? `Loaded ${lastLoaded} more event${lastLoaded === 1 ? '' : 's'}.`
                 : ''}
-          </p>
+          </Text>
 
           {tree.roots.length ? (
-            <ol className="timeline-roots" aria-label="Activity events">
+            <Stack as="ol" aria-label="Activity events" gap="4" listStyle="none" mt="4" p="0" m="0">
               {tree.roots.map((node) => (
                 <EventCard
                   key={node.event.eventId}
@@ -268,41 +273,38 @@ export function ActivityTracePage() {
                   onToggle={toggle}
                 />
               ))}
-            </ol>
+            </Stack>
           ) : (
-            <p className="empty-timeline">No activity is reported for this trace.</p>
+            <Box role="status" py="10" textAlign="center">
+              <Heading fontFamily="heading" fontSize="md">No activity reported</Heading>
+              <Text mt="1" color="governance.muted" fontSize="sm">No events are available for this trace yet.</Text>
+            </Box>
           )}
 
           {tree.unavailable.length ? (
-            <section className="unavailable-panel" aria-label="Unavailable event details">
-              <h3>Unavailable event details</h3>
-              <p>The event was reported, but its metadata is no longer available.</p>
-              <ul>
+            <Box as="section" aria-label="Unavailable event details" mt="5" p="4" borderRadius="lg" bg="orange.50" color="orange.900">
+              <Heading as="h3" fontFamily="heading" fontSize="md">Unavailable event details</Heading>
+              <Text mt="1" fontSize="sm">The event was reported, but its metadata is no longer available.</Text>
+              <Stack as="ul" gap="2" mt="3" listStyle="none" p="0" m="0">
                 {tree.unavailable.map((item) => (
-                  <li key={item.eventId} className="unavailable-event">
-                    <span className="unavailable-marker" aria-hidden="true">—</span>
-                    <span>Event details unavailable</span>
-                    <code>{shortId(item.eventId)}</code>
-                  </li>
+                  <Flex as="li" key={item.eventId} justify="space-between" gap="3" p="2" borderTopWidth="1px" borderColor="orange.200" fontSize="sm">
+                    <Text>Event details unavailable</Text>
+                    <Text as="code" fontFamily="mono">{shortId(item.eventId)}</Text>
+                  </Flex>
                 ))}
-              </ul>
-            </section>
+              </Stack>
+            </Box>
           ) : null}
 
           {events.length > 0 ? (
-            <button
-              className="load-more-button"
-              type="button"
-              onClick={loadMore}
-              aria-disabled={pending || !nextCursor}
-            >
+            <Button mt="5" variant="outline" onClick={loadMore} disabled={pending || !nextCursor}>
               {pending
                 ? 'Loading more activity…'
                 : nextCursor ? 'Load more events' : 'All events loaded'}
-            </button>
+            </Button>
           ) : null}
-        </section>
+        </Box>
       ) : null}
-    </main>
+    </Container>
   );
 }

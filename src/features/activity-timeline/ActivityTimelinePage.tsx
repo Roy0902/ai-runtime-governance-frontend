@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Badge, Box, Button, Container, Flex, Grid, Heading, HStack, Stack, Text } from '@chakra-ui/react';
 import { buildEventTree, type EventNode } from './ActivityTimelineModel';
 import { fixtureEvents, fixtureTraceDetails, fixtureTraces } from './ActivityTimelineFixtures';
 import type {
@@ -81,7 +82,16 @@ function eventMetadata(event: ActivityEvent): string[] {
 
 function StatusBadge({ value, label }: { value: string | null; label?: string }) {
   const normalized = value?.replaceAll('_', '-') ?? 'unknown';
-  return <span className={`status-badge status-${normalized}`}>{label ?? statusLabel(value)}</span>;
+  const palette = normalized === 'completed' || normalized === 'allow' || normalized === 'observed'
+    ? 'green'
+    : normalized === 'failed' || normalized === 'deny'
+      ? 'red'
+      : normalized === 'running'
+        ? 'blue'
+        : normalized === 'require-approval'
+          ? 'orange'
+          : 'gray';
+  return <Badge colorPalette={palette} variant="subtle">{label ?? statusLabel(value)}</Badge>;
 }
 
 function TraceRow({
@@ -94,129 +104,128 @@ function TraceRow({
   onSelect: () => void;
 }) {
   return (
-    <button
-      className={`trace-row${selected ? ' trace-row-selected' : ''}`}
-      type="button"
+    <Button
+      width="full"
+      height="auto"
+      p="4"
+      borderWidth="1px"
+      borderColor={selected ? 'governance.primary' : 'governance.line'}
+      borderRadius="lg"
+      bg={selected ? 'green.50' : 'white'}
+      color="governance.ink"
+      variant="plain"
+      display="block"
+      textAlign="left"
       aria-pressed={selected}
       onClick={onSelect}
     >
-      <span className="trace-row-heading">
-        <span className="trace-id">Trace {shortId(trace.traceId)}</span>
+      <Flex justify="space-between" gap="2" align="center">
+        <Text fontFamily="mono" fontSize="sm">Trace {shortId(trace.traceId)}</Text>
         <StatusBadge value={trace.executionStatus} />
-      </span>
-      <span className="trace-row-time">{formatTime(trace.receivedAt)}</span>
-      <span className="trace-row-meta">
-        <span>{outcomeLabel(trace.guardOutcome)}</span>
-        <span>{statusLabel(trace.telemetryStatus)} telemetry</span>
-      </span>
-    </button>
+      </Flex>
+      <Text mt="2" color="governance.muted" fontSize="xs">{formatTime(trace.receivedAt)}</Text>
+      <HStack mt="2" gap="2" flexWrap="wrap">
+        <Badge variant="outline">{outcomeLabel(trace.guardOutcome)}</Badge>
+        <Badge variant="outline">{statusLabel(trace.telemetryStatus)} telemetry</Badge>
+      </HStack>
+    </Button>
   );
 }
 
 function EventCard({ node }: { node: EventNode }) {
   const { event } = node;
   return (
-    <li className="timeline-node">
-      <article className="event-card">
-        <div className="event-card-top">
-          <div>
-            <span className={`event-kind event-kind-${event.kind}`}>{event.kind}</span>
-            <h3>{eventHeading(event)}</h3>
-          </div>
+    <Box as="li" listStyle="none">
+      <Stack gap="3">
+      <Box as="article" p="4" borderLeftWidth="3px" borderLeftColor="governance.primary" borderTopWidth="1px" borderRightWidth="1px" borderBottomWidth="1px" borderColor="governance.line" borderRadius="lg" bg="white">
+        <Flex justify="space-between" gap="3" align="flex-start" wrap="wrap">
+          <HStack gap="3" align="flex-start">
+            <Badge colorPalette="green" variant="subtle">{event.kind}</Badge>
+            <Box>
+              <Heading as="h3" fontFamily="heading" fontSize="md">{eventHeading(event)}</Heading>
+              <Text mt="1" color="governance.muted" fontSize="xs">{formatTime(event.receivedAt)}</Text>
+            </Box>
+          </HStack>
           <StatusBadge value={eventState(event)} />
-        </div>
-        {node.unresolved ? <p className="event-unlinked">Unlinked activity.</p> : null}
+        </Flex>
+        {node.unresolved ? <Text mt="3" color="orange.800" fontSize="sm">Unlinked activity.</Text> : null}
         {node.parentNotLoaded ? (
-          <p className="event-unlinked">Parent event is not loaded in this page.</p>
+          <Text mt="3" color="orange.800" fontSize="sm">Parent event is not loaded in this page.</Text>
         ) : null}
-        <dl className="event-details">
-          <div>
-            <dt>Received (UTC)</dt>
-            <dd>{formatTime(event.receivedAt)}</dd>
-          </div>
-          <div>
-            <dt>Source time (UTC)</dt>
-            <dd>{formatTime(event.sourceAt)}</dd>
-          </div>
-          <div>
-            <dt>Duration</dt>
-            <dd>{event.durationMs === null ? 'Not reported' : `${event.durationMs} ms`}</dd>
-          </div>
-          {event.identity ? (
-            <div>
-              <dt>Reporter</dt>
-              <dd>{event.identity}</dd>
-            </div>
-          ) : null}
-        </dl>
+        <Grid mt="3" templateColumns={{ base: '1fr', md: 'repeat(2, minmax(0, 1fr))' }} gap="3" p="3" borderRadius="md" bg="governance.canvas">
+          {[
+            ['Received (UTC)', formatTime(event.receivedAt)],
+            ['Source time (UTC)', formatTime(event.sourceAt)],
+            ['Duration', event.durationMs === null ? 'Not reported' : `${event.durationMs} ms`],
+            ...(event.identity ? [['Reporter', event.identity]] : []),
+          ].map(([label, value]) => (
+            <Box key={label}>
+              <Text color="governance.muted" fontSize="xs">{label}</Text>
+              <Text mt="1" fontSize="sm" fontWeight="medium">{value}</Text>
+            </Box>
+          ))}
+        </Grid>
         {eventMetadata(event).length ? (
-          <ul className="event-metadata">
-            {eventMetadata(event).map((value) => <li key={value}>{value}</li>)}
-          </ul>
+          <Stack as="ul" mt="3" gap="1" listStyle="none" p="0" m="0">
+            {eventMetadata(event).map((value) => <Text as="li" key={value} color="governance.muted" fontSize="sm">{value}</Text>)}
+          </Stack>
         ) : null}
-      </article>
+      </Box>
       {node.children.length ? (
-        <ol className="timeline-children">
+        <Stack as="ol" gap="3" pl="6" ml="4" borderLeftWidth="2px" borderColor="governance.line">
           {node.children.map((child) => <EventCard key={child.event.eventId} node={child} />)}
-        </ol>
+        </Stack>
       ) : null}
-    </li>
+      </Stack>
+    </Box>
   );
 }
 
 function UnavailableEvent({ event }: { event: EventTombstone }) {
   return (
-    <li className="unavailable-event">
-      <span className="unavailable-marker" aria-hidden="true">—</span>
-      <span>Event details unavailable</span>
-      <code>{shortId(event.eventId)}</code>
-    </li>
+    <Flex as="li" justify="space-between" gap="3" p="2" borderTopWidth="1px" borderColor="orange.200" fontSize="sm">
+      <Text>Event details unavailable</Text>
+      <Text as="code" fontFamily="mono">{shortId(event.eventId)}</Text>
+    </Flex>
   );
 }
 
 function TraceDetails({ trace }: { trace: TraceDetail }) {
   return (
-    <section className="trace-summary-panel" aria-label="Trace summary">
-      <div className="trace-summary-heading">
-        <div>
-          <p className="section-eyebrow">Selected trace</p>
-          <h2>{trace.identity ?? 'Identity not reported'}</h2>
-          <code>Trace {trace.traceId}</code>
-        </div>
+    <Box as="section" aria-label="Trace summary" p="5" borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+      <Flex justify="space-between" align="flex-start" gap="4" wrap="wrap">
+        <Box>
+          <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Selected trace</Text>
+          <Heading fontFamily="heading" fontSize="lg">{trace.identity ?? 'Identity not reported'}</Heading>
+          <Text as="code" display="block" mt="2" color="governance.muted" fontSize="xs" overflowWrap="anywhere">Trace {trace.traceId}</Text>
+        </Box>
         <StatusBadge value={trace.executionStatus} />
-      </div>
-      <div className="summary-grid">
-        <div className="summary-cell">
-          <span>Execution</span>
-          <strong>{statusLabel(trace.executionStatus)}</strong>
-        </div>
-        <div className="summary-cell">
-          <span>Telemetry</span>
-          <strong>{statusLabel(trace.telemetryStatus)}</strong>
-        </div>
-        <div className="summary-cell">
-          <span>Prompt guard</span>
-          <strong>{outcomeLabel(trace.guardOutcome)}</strong>
-        </div>
-        <div className="summary-cell">
-          <span>Received (UTC)</span>
-          <strong>{formatTime(trace.receivedAt)}</strong>
-        </div>
-      </div>
-      <div className="coverage-grid" aria-label="Reported integration coverage">
-        <div><span>Input</span><strong>{statusLabel(trace.coverage.input)}</strong></div>
-        <div><span>Response</span><strong>{statusLabel(trace.coverage.response)}</strong></div>
-        <div><span>Tools</span><strong>{statusLabel(trace.coverage.tools)}</strong></div>
-      </div>
+      </Flex>
+      <Grid mt="4" templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }} gap="2">
+        {[
+          ['Execution', statusLabel(trace.executionStatus)],
+          ['Telemetry', statusLabel(trace.telemetryStatus)],
+          ['Prompt guard', outcomeLabel(trace.guardOutcome)],
+          ['Received (UTC)', formatTime(trace.receivedAt)],
+        ].map(([label, value]) => (
+          <Box key={label} p="3" borderRadius="md" bg="governance.canvas">
+            <Text color="governance.muted" fontSize="xs">{label}</Text>
+            <Text mt="1" fontSize="sm" fontWeight="semibold">{value}</Text>
+          </Box>
+        ))}
+      </Grid>
+      <HStack mt="3" aria-label="Reported integration coverage" gap="2" flexWrap="wrap">
+        {Object.entries(trace.coverage).map(([label, value]) => <Badge key={label} variant="outline">{label}: {statusLabel(value)}</Badge>)}
+      </HStack>
       {trace.loss ? (
-        <p className="loss-note" role="note">
+        <Text role="note" mt="4" p="3" borderRadius="md" bg="orange.50" color="orange.900" fontSize="sm">
           Telemetry loss reported: {trace.loss.causeCode ?? 'cause unknown'}
           {trace.loss.missingCount === null ? '' : ` · ${trace.loss.missingCount} event(s) reported missing`}
           {trace.loss.from ? ` · from ${formatTime(trace.loss.from)}` : ''}
           {trace.loss.to ? ` · to ${formatTime(trace.loss.to)}` : ''}
-        </p>
+        </Text>
       ) : null}
-    </section>
+    </Box>
   );
 }
 
@@ -243,39 +252,39 @@ export function ActivityTimelinePage() {
   }
 
   return (
-    <main className="activity-main">
-      <div className="activity-heading">
+    <Container as="main" maxW="1440px" py={{ base: '6', md: '10' }} px={{ base: '4', md: '8' }}>
+      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap" mb="6">
         <div>
-          <p className="section-eyebrow">Observability</p>
-          <h1>Activity</h1>
-          <p className="activity-intro">
+          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Observability</Text>
+          <Heading fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Activity</Heading>
+          <Text mt="2" maxW="44rem" color="governance.muted">
             Inspect reported agent, model, tool, guard, and approval activity without exposing payloads.
-          </p>
+          </Text>
         </div>
-        <button className="button-secondary" type="button" onClick={resetPreview}>
+        <Button variant="outline" type="button" onClick={resetPreview}>
           Reset preview
-        </button>
-      </div>
+        </Button>
+      </Flex>
 
-      <div className="fixture-banner" role="note">
-        <span className="fixture-dot" aria-hidden="true" />
-        <div>
-          <strong>Synthetic fixture preview</strong>
-          <p>This data is illustrative only. It is not connected to the service or a real account trace.</p>
-        </div>
-      </div>
-      {notice ? <p className="preview-notice" role="status">{notice}</p> : null}
+      <Flex role="note" align="flex-start" gap="3" mb="5" p="4" borderWidth="1px" borderColor="orange.200" borderRadius="lg" bg="orange.50" color="orange.900">
+        <Badge mt="0.5" colorPalette="orange" variant="solid">Preview</Badge>
+        <Box>
+          <Text fontWeight="bold">Synthetic fixture preview</Text>
+          <Text mt="1" fontSize="sm">This data is illustrative only. It is not connected to the service or a real account trace.</Text>
+        </Box>
+      </Flex>
+      {notice ? <Text role="status" mb="4" color="green.800">{notice}</Text> : null}
 
-      <div className="activity-layout">
-        <aside className="trace-panel" aria-label="Trace list">
-          <div className="panel-heading">
-            <div>
-              <p className="section-eyebrow">Recent activity</p>
-              <h2>Traces</h2>
-            </div>
-            <span className="trace-count">{fixtureTraces.length} fixtures</span>
-          </div>
-          <div className="trace-list">
+      <Grid templateColumns={{ base: '1fr', xl: 'minmax(18rem, 22rem) minmax(0, 1fr)' }} gap="5">
+        <Box as="aside" aria-label="Trace list" p="4" borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+          <Flex justify="space-between" align="center" gap="3" mb="4">
+            <Box>
+              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Recent activity</Text>
+              <Heading fontFamily="heading" fontSize="lg">Traces</Heading>
+            </Box>
+            <Badge variant="subtle">{fixtureTraces.length} fixtures</Badge>
+          </Flex>
+          <Stack gap="2">
             {fixtureTraces.slice(0, visibleTraceCount).map((trace) => (
               <TraceRow
                 key={trace.traceId}
@@ -284,64 +293,56 @@ export function ActivityTimelinePage() {
                 onSelect={() => selectTrace(trace.traceId)}
               />
             ))}
-          </div>
+          </Stack>
           {visibleTraceCount < fixtureTraces.length ? (
-            <button
-              className="load-more-button"
-              type="button"
-              onClick={() => setVisibleTraceCount(fixtureTraces.length)}
-            >
+            <Button mt="4" variant="outline" onClick={() => setVisibleTraceCount(fixtureTraces.length)}>
               Load more traces
-            </button>
+            </Button>
           ) : null}
-        </aside>
+        </Box>
 
-        <div className="trace-workspace">
+        <Stack gap="5" minW="0">
           <TraceDetails trace={selectedTrace} />
-          <section className="timeline-panel" aria-labelledby="timeline-heading">
-            <div className="timeline-heading">
-              <div>
-                <p className="section-eyebrow">Receipt order · sibling events</p>
-                <h2 id="timeline-heading">Timeline</h2>
-              </div>
-              <span className="event-count">
+          <Box as="section" aria-labelledby="timeline-heading" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+            <Flex justify="space-between" align="flex-end" gap="4" wrap="wrap">
+              <Box>
+                <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Receipt order · sibling events</Text>
+                <Heading id="timeline-heading" fontFamily="heading" fontSize="xl">Agent event timeline</Heading>
+              </Box>
+              <Badge variant="subtle">
                 {visibleItems.length} of {traceItems.length} items
-              </span>
-            </div>
-            <p className="timeline-explainer">
+              </Badge>
+            </Flex>
+            <Text mt="3" color="governance.muted" fontSize="sm">
               Events are ordered by server receipt time within each parent group. Producer-reported source time is shown separately.
-            </p>
+            </Text>
             {eventTree.roots.length ? (
-              <ol className="timeline-roots">
+              <Stack as="ol" gap="4" mt="4" listStyle="none" p="0" m="0">
                 {eventTree.roots.map((node) => <EventCard key={node.event.eventId} node={node} />)}
-              </ol>
+              </Stack>
             ) : null}
             {eventTree.unavailable.length ? (
-              <section className="unavailable-panel" aria-label="Unavailable event details">
-                <h3>Unavailable event details</h3>
-                <p>The event was reported, but its metadata is not available in this page.</p>
-                <ul>
+              <Box as="section" aria-label="Unavailable event details" mt="4" p="4" borderRadius="lg" bg="orange.50" color="orange.900">
+                <Heading as="h3" fontFamily="heading" fontSize="md">Unavailable event details</Heading>
+                <Text mt="1" fontSize="sm">The event was reported, but its metadata is not available in this page.</Text>
+                <Stack as="ul" mt="3" listStyle="none" p="0" m="0">
                   {eventTree.unavailable.map((event) => (
                     <UnavailableEvent key={event.eventId} event={event} />
                   ))}
-                </ul>
-              </section>
+                </Stack>
+              </Box>
             ) : null}
             {!eventTree.roots.length && !eventTree.unavailable.length ? (
-              <p className="empty-timeline">No activity is included in this fixture.</p>
+              <Text role="status" py="8" color="governance.muted" textAlign="center">No activity is included in this fixture.</Text>
             ) : null}
             {visibleEventCount < traceItems.length ? (
-              <button
-                className="load-more-button"
-                type="button"
-                onClick={() => setVisibleEventCount(traceItems.length)}
-              >
+              <Button mt="4" variant="outline" onClick={() => setVisibleEventCount(traceItems.length)}>
                 Load more activity
-              </button>
+              </Button>
             ) : null}
-          </section>
-        </div>
-      </div>
-    </main>
+          </Box>
+        </Stack>
+      </Grid>
+    </Container>
   );
 }

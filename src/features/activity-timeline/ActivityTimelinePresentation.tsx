@@ -1,4 +1,5 @@
 import type { GuardOutcome, TraceDetail } from './ActivityTimelineTypes';
+import { Badge, Box, Flex, Grid, Heading, HStack, Text } from '@chakra-ui/react';
 
 export function formatTime(value: string | null): string {
   return value
@@ -24,66 +25,71 @@ export function outcomeLabel(value: GuardOutcome | null): string {
 
 export function StatusBadge({ value, label }: { value: string | null; label?: string }) {
   const normalized = value?.replaceAll('_', '-') ?? 'unknown';
-  return <span className={`status-badge status-${normalized}`}>{label ?? statusLabel(value)}</span>;
+  const palettes: Record<string, 'green' | 'red' | 'orange' | 'blue' | 'gray'> = {
+    completed: 'green',
+    allow: 'green',
+    observed: 'green',
+    failed: 'red',
+    deny: 'red',
+    canceled: 'orange',
+    'require-approval': 'orange',
+    running: 'blue',
+    guarded: 'blue',
+    unknown: 'gray',
+  };
+  return (
+    <Badge colorPalette={palettes[normalized] ?? 'gray'} variant="subtle" textTransform="capitalize">
+      {label ?? statusLabel(value)}
+    </Badge>
+  );
 }
 
 export function TraceSummaryPanel({ trace }: { trace: TraceDetail }) {
   return (
-    <section className="trace-summary-panel" aria-label="Trace summary">
-      <div className="trace-summary-heading">
-        <div>
-          <p className="section-eyebrow">Trace</p>
-          <h2>{trace.identity ?? 'Identity not reported'}</h2>
-          <code>Trace {trace.traceId}</code>
-        </div>
+    <Box as="section" aria-label="Trace summary" mt="6" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+      <Flex justify="space-between" align="flex-start" gap="4" wrap="wrap">
+        <Box>
+          <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Trace</Text>
+          <Heading fontSize="xl" fontFamily="heading">{trace.identity ?? 'Identity not reported'}</Heading>
+          <Text as="code" display="block" mt="2" color="governance.muted" fontSize="xs" overflowWrap="anywhere">
+            Trace {trace.traceId}
+          </Text>
+        </Box>
         <StatusBadge value={trace.executionStatus} />
-      </div>
-      <div className="summary-grid">
-        <div className="summary-cell">
-          <span>Execution</span>
-          <strong>{statusLabel(trace.executionStatus)}</strong>
-        </div>
-        <div className="summary-cell">
-          <span>Telemetry</span>
-          <strong>{statusLabel(trace.telemetryStatus)}</strong>
-        </div>
-        <div className="summary-cell">
-          <span>Prompt guard</span>
-          <strong>{outcomeLabel(trace.guardOutcome)}</strong>
-        </div>
-        <div className="summary-cell">
-          <span>Received (UTC)</span>
-          <strong>{formatTime(trace.receivedAt)}</strong>
-        </div>
-      </div>
-      <section className="coverage-grid" aria-label="Reported integration coverage">
-        <div><span>Input</span><strong>{statusLabel(trace.coverage.input)}</strong></div>
-        <div><span>Response</span><strong>{statusLabel(trace.coverage.response)}</strong></div>
-        <div><span>Tools</span><strong>{statusLabel(trace.coverage.tools)}</strong></div>
-      </section>
+      </Flex>
+      <Grid mt="6" templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }} gap="3">
+        {[
+          ['Execution', statusLabel(trace.executionStatus)],
+          ['Telemetry', statusLabel(trace.telemetryStatus)],
+          ['Prompt guard', outcomeLabel(trace.guardOutcome)],
+          ['Received (UTC)', formatTime(trace.receivedAt)],
+        ].map(([label, value]) => (
+          <Box key={label} p="3" borderRadius="lg" bg="governance.canvas">
+            <Text color="governance.muted" fontSize="xs">{label}</Text>
+            <Text mt="1" color="governance.ink" fontSize="sm" fontWeight="semibold">{value}</Text>
+          </Box>
+        ))}
+      </Grid>
+      <Box mt="4" aria-label="Reported integration coverage">
+        <Text mb="2" color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">Integration coverage</Text>
+        <HStack gap="2" flexWrap="wrap">
+          {Object.entries(trace.coverage).map(([label, value]) => (
+            <Badge key={label} colorPalette={value === 'observed' ? 'green' : 'gray'} variant="outline">
+              {label}: {statusLabel(value)}
+            </Badge>
+          ))}
+        </HStack>
+      </Box>
       {trace.loss ? (
-        <section className="loss-details" aria-label="Loss extent">
-          <h3>Telemetry loss</h3>
-          <dl>
-            <div>
-              <dt>Loss cause</dt>
-              <dd>{trace.loss.causeCode ?? 'Unknown'}</dd>
-            </div>
-            <div>
-              <dt>Missing events</dt>
-              <dd>{trace.loss.missingCount === null ? 'Unknown' : trace.loss.missingCount}</dd>
-            </div>
-            <div>
-              <dt>Missing time range</dt>
-              <dd>
-                {trace.loss.from || trace.loss.to
-                  ? `${formatTime(trace.loss.from)} to ${formatTime(trace.loss.to)}`
-                  : 'Unknown'}
-              </dd>
-            </div>
-          </dl>
-        </section>
+        <Box as="section" aria-label="Loss extent" mt="4" p="4" borderRadius="lg" bg="orange.50" color="orange.900">
+          <Text mb="2" fontWeight="bold">Telemetry loss</Text>
+          <Grid templateColumns={{ base: '1fr', md: 'repeat(3, minmax(0, 1fr))' }} gap="3">
+            <Text fontSize="sm"><Text as="span" fontWeight="bold">Cause: </Text>{trace.loss.causeCode ?? 'Unknown'}</Text>
+            <Text fontSize="sm"><Text as="span" fontWeight="bold">Missing events: </Text>{trace.loss.missingCount === null ? 'Unknown' : trace.loss.missingCount}</Text>
+            <Text fontSize="sm"><Text as="span" fontWeight="bold">Time range: </Text>{trace.loss.from || trace.loss.to ? `${formatTime(trace.loss.from)} to ${formatTime(trace.loss.to)}` : 'Unknown'}</Text>
+          </Grid>
+        </Box>
       ) : null}
-    </section>
+    </Box>
   );
 }

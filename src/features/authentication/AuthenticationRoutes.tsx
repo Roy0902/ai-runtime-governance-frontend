@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Box, Button, Checkbox, Code, Container, Field, Grid, Heading, HStack, Image, Input, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { ApiError } from '../../ApplicationApiClient';
 import type { AuthenticatorSecrets } from '../../api/AuthenticatorSecrets';
 import type { AuthenticationContext } from '../../api/AuthenticationContext';
 import type { Operation } from '../../api/Operation';
 import { useAuthentication } from '../../AuthenticationContext';
+import { ApplicationErrorPage } from '../../components/ApplicationErrorPage';
+import { ApplicationHeader } from '../../components/layout/ApplicationHeader';
 import { ApplicationShell } from '../../components/layout/ApplicationShell';
 import { GatewayKeysPage } from '../gateway/GatewayKeysPage';
 import { StepUpDialog } from './StepUpDialog';
@@ -25,11 +28,84 @@ function errorText(error: unknown): string {
 }
 
 function Message({ text }: { text: string }) {
-  return <p role="alert">{text}</p>;
+  return (
+    <Text role="alert" mt="4" p="3" borderRadius="md" bg="red.50" color="red.800" fontSize="sm">
+      {text}
+    </Text>
+  );
 }
 
 function Status({ text }: { text: string }) {
-  return <p role="status">{text}</p>;
+  return (
+    <Text role="status" mt="4" p="3" borderRadius="md" bg="green.50" color="green.900" fontSize="sm">
+      {text}
+    </Text>
+  );
+}
+
+function AuthPage({ children }: { children: ReactNode }) {
+  return (
+    <Container as="main" maxW="xl" flex="1" px="4" py={{ base: '8', md: '14' }}>
+      <Box
+        p={{ base: '5', md: '8' }}
+        borderWidth="1px"
+        borderColor="governance.line"
+        borderRadius="xl"
+        bg="white"
+        boxShadow="0 18px 52px rgba(23,43,52,0.08)"
+        css={{
+          '& h1': { marginBottom: '1rem', fontFamily: 'heading', fontSize: '2xl', fontWeight: '700', lineHeight: '1.2' },
+          '& p': { color: 'governance.muted' },
+          '& form': { display: 'grid', gap: '1rem' },
+          '& label': { display: 'grid', gap: '0.4rem', color: 'governance.ink', fontSize: '0.875rem', fontWeight: '600' },
+          '& input:not([type=checkbox])': {
+            width: '100%',
+            minHeight: '44px',
+            paddingInline: '0.75rem',
+            border: '1px solid var(--chakra-colors-governance-line)',
+            borderRadius: 'var(--chakra-radii-md)',
+            background: 'white',
+            color: 'var(--chakra-colors-governance-ink)',
+          },
+          '& input[type=checkbox]': { width: '1rem', height: '1rem', accentColor: 'var(--chakra-colors-governance-primary)' },
+          '& label:has(input[type=checkbox])': { display: 'flex', alignItems: 'center', gap: '0.65rem' },
+          '& button:not([data-scope])': {
+            minHeight: '42px',
+            paddingInline: '1rem',
+            border: '1px solid var(--chakra-colors-governance-primary)',
+            borderRadius: 'var(--chakra-radii-md)',
+            background: 'var(--chakra-colors-governance-primary)',
+            color: 'white',
+            fontWeight: '600',
+          },
+          '& a': { color: 'var(--chakra-colors-governance-primary)', fontWeight: '600' },
+          '& dl': { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: '0.75rem' },
+          '& dd': { margin: 0, color: 'governance.ink', fontWeight: '600' },
+        }}
+      >
+        <Stack gap="4">{children}</Stack>
+      </Box>
+    </Container>
+  );
+}
+
+function AuthField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Field.Root>
+      <Field.Label>{label}</Field.Label>
+      {children}
+    </Field.Root>
+  );
+}
+
+function SavedCodesCheckbox({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <Checkbox.Root checked={checked} colorPalette="green" onCheckedChange={({ checked: next }) => onChange(next === true)}>
+      <Checkbox.HiddenInput aria-label="I have saved my recovery codes" />
+      <Checkbox.Control />
+      <Checkbox.Label>I have saved my recovery codes</Checkbox.Label>
+    </Checkbox.Root>
+  );
 }
 
 export function RequireHuman({ children }: { children: ReactNode }) {
@@ -82,15 +158,31 @@ function AuthenticationContextLoading() {
   }
 
   return (
-    <main>
-      <h1>Unable to load your session</h1>
-      <p role="alert">
-        {refreshError ?? 'Your session could not be loaded. Try again.'}
-      </p>
-      <button type="button" onClick={() => { void refresh().catch(() => {}); }}>
+    <ApplicationErrorPage
+      code="SESSION"
+      eyebrow="Session unavailable"
+      title="Unable to load your session"
+      description={refreshError ?? 'Your session could not be loaded. Try again.'}
+    >
+      <Button type="button" variant="outline" onClick={() => { void refresh().catch(() => {}); }}>
         Retry
-      </button>
-    </main>
+      </Button>
+    </ApplicationErrorPage>
+  );
+}
+
+function NotFoundPage() {
+  return (
+    <ApplicationErrorPage
+      code="404"
+      eyebrow="Page not found"
+      title="We couldn’t find that page"
+      description="The address may be outdated, or the page may have moved."
+    >
+      <Button asChild variant="outline">
+        <Link to="/">Return to the start</Link>
+      </Button>
+    </ApplicationErrorPage>
   );
 }
 
@@ -117,28 +209,39 @@ function SignInPage() {
   }
 
   return (
-    <main>
-      <h1>Sign in</h1>
-      <form onSubmit={submit}>
-        <label>
-          Email
-          <input aria-label="Email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
-        <label>
-          Password
-          <input aria-label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </label>
-        <label>
-          Authenticator or recovery code
-          <input aria-label="Authenticator or recovery code" value={factor} onChange={(event) => setFactor(event.target.value)} />
-        </label>
-        <button type="submit">Sign in</button>
-      </form>
+    <Container as="main" maxW="md" flex="1" py={{ base: '10', md: '20' }} px="4">
+      <Box p={{ base: '6', md: '9' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white" boxShadow="0 18px 52px rgba(23,43,52,0.08)">
+        <Stack gap="6">
+          <Box>
+            <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+              Account access
+            </Text>
+            <Heading fontSize="3xl">Sign in</Heading>
+            <Text mt="2" color="governance.muted">Continue to your governance workspace.</Text>
+          </Box>
+          <Box as="form" display="grid" gap="4" onSubmit={submit}>
+            <Field.Root>
+              <Field.Label>Email</Field.Label>
+              <Input aria-label="Email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </Field.Root>
+            <Field.Root>
+              <Field.Label>Password</Field.Label>
+              <Input aria-label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            </Field.Root>
+            <Field.Root>
+              <Field.Label>Authenticator or recovery code</Field.Label>
+              <Input aria-label="Authenticator or recovery code" value={factor} onChange={(event) => setFactor(event.target.value)} />
+            </Field.Root>
+            <Button type="submit" size="lg" colorPalette="green">Sign in</Button>
+          </Box>
+        </Stack>
+      </Box>
       {error ? <Message text={error} /> : null}
-      <p>
-        <a href="/register">Create account</a> · <a href="/forgot-password">Forgot password?</a>
-      </p>
-    </main>
+      <Stack direction={{ base: 'column', sm: 'row' }} gap="4" mt="5" px="1" fontSize="sm">
+        <Link to="/register">Create account</Link>
+        <Link to="/forgot-password">Forgot password?</Link>
+      </Stack>
+    </Container>
   );
 }
 
@@ -162,26 +265,22 @@ function RegisterPage() {
   }
 
   return (
-    <main>
-      <h1>Create account</h1>
-      <form onSubmit={submit}>
-        <label>
-          Email
-          <input aria-label="Email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
-        <label>
-          New password
-          <input aria-label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </label>
-        <p>Use at least 12 characters.</p>
-        <button type="submit">Create account</button>
-      </form>
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Create account</Heading>
+      <Box as="form" display="grid" gap="4" onSubmit={submit}>
+        <AuthField label="Email">
+          <Input aria-label="Email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </AuthField>
+        <AuthField label="New password">
+          <Input aria-label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        </AuthField>
+        <Text color="governance.muted" fontSize="sm">Use at least 12 characters.</Text>
+        <Button type="submit" colorPalette="green">Create account</Button>
+      </Box>
       {status ? <Status text={status} /> : null}
       {error ? <Message text={error} /> : null}
-      <p>
-        <a href="/sign-in">Sign in</a>
-      </p>
-    </main>
+      <Text fontSize="sm"><Link to="/sign-in">Sign in</Link></Text>
+    </AuthPage>
   );
 }
 
@@ -216,29 +315,28 @@ function VerifyPage() {
   }
 
   return (
-    <main>
-      <h1>Verify email</h1>
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Verify email</Heading>
+      <Stack gap="3">
       {token ? (
         <>
-          <p>Confirm this email address to continue.</p>
-          <button type="button" onClick={verify}>
+          <Text color="governance.muted">Confirm this email address to continue.</Text>
+          <Button type="button" colorPalette="green" onClick={verify}>
             Verify email
-          </button>
+          </Button>
         </>
       ) : (
-        <p>Request a new verification email.</p>
+        <Text color="governance.muted">Request a new verification email.</Text>
       )}
-      <label>
-        Email
-        <input aria-label="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
-      </label>
-      <button type="button" onClick={resend}>
-        Send a new verification email
-      </button>
+      <AuthField label="Email">
+        <Input aria-label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+      </AuthField>
+      <Button type="button" variant="outline" onClick={resend}>Send a new verification email</Button>
       {status ? <Status text={status} /> : null}
-      {verified ? <a href="/setup/enroll">Continue to setup</a> : null}
+      {verified ? <Text><Link to="/setup/enroll">Continue to setup</Link></Text> : null}
       {error ? <Message text={error} /> : null}
-    </main>
+      </Stack>
+    </AuthPage>
   );
 }
 
@@ -260,18 +358,17 @@ function ForgotPasswordPage() {
   }
 
   return (
-    <main>
-      <h1>Reset password</h1>
-      <form onSubmit={submit}>
-        <label>
-          Email
-          <input aria-label="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
-        <button type="submit">Send reset email</button>
-      </form>
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Reset password</Heading>
+      <Box as="form" display="grid" gap="4" onSubmit={submit}>
+        <AuthField label="Email">
+          <Input aria-label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </AuthField>
+        <Button type="submit" colorPalette="green">Send reset email</Button>
+      </Box>
       {status ? <Status text={status} /> : null}
       {error ? <Message text={error} /> : null}
-    </main>
+    </AuthPage>
   );
 }
 
@@ -295,18 +392,17 @@ function ResetPasswordPage() {
   }
 
   return (
-    <main>
-      <h1>Choose a new password</h1>
-      <form onSubmit={submit}>
-        <label>
-          New password
-          <input aria-label="New password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </label>
-        <button type="submit">Change password</button>
-      </form>
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Choose a new password</Heading>
+      <Box as="form" display="grid" gap="4" onSubmit={submit}>
+        <AuthField label="New password">
+          <Input aria-label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        </AuthField>
+        <Button type="submit" colorPalette="green">Change password</Button>
+      </Box>
       {status ? <Status text={status} /> : null}
       {error ? <Message text={error} /> : null}
-    </main>
+    </AuthPage>
   );
 }
 
@@ -384,17 +480,18 @@ function SecretDisplay({ secrets }: { secrets: AuthenticatorSecrets }) {
     '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><rect width="180" height="180" fill="#fff"/><rect x="20" y="20" width="140" height="140" fill="none" stroke="#111" stroke-width="8"/></svg>',
   )}`;
   return (
-    <>
-      <img src={qr} alt="Authenticator QR code" width={180} height={180} />
-      <p>
-        <output aria-label="Manual key">{secrets.manualKey}</output>
-      </p>
-      <ol aria-label="Recovery codes">
+    <Stack gap="4">
+      <Image src={qr} alt="Authenticator QR code" width="180px" height="180px" borderWidth="1px" borderColor="governance.line" borderRadius="lg" />
+      <Box>
+        <Text mb="1" color="governance.muted" fontSize="xs">Manual key</Text>
+        <Code display="block" p="3" borderRadius="md" fontSize="sm" overflowWrap="anywhere">{secrets.manualKey}</Code>
+      </Box>
+      <Grid as="ol" aria-label="Recovery codes" templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }} gap="2" listStyle="none" p="0" m="0">
         {secrets.recoveryCodes.map((value) => (
-          <li key={value}>{value}</li>
+          <Code as="li" key={value} p="2" borderRadius="md" textAlign="center">{value}</Code>
         ))}
-      </ol>
-    </>
+      </Grid>
+    </Stack>
   );
 }
 
@@ -416,38 +513,31 @@ function EnrollPage() {
   );
 
   return (
-    <main>
-      <h1>Set up your authenticator</h1>
-      <p>Scan the QR code or enter the manual key in your authenticator app, then enter the current six-digit code.</p>
-      <p>This key and your recovery codes are shown once. Save them before continuing.</p>
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Set up your authenticator</Heading>
+      <Text color="governance.muted">Scan the QR code or enter the manual key in your authenticator app, then enter the current six-digit code.</Text>
+      <Text color="governance.muted" fontSize="sm">This key and your recovery codes are shown once. Save them before continuing.</Text>
       {state.alreadyIssued ? <Message text="These setup values were already shown. Start a new attempt." /> : null}
       {state.secrets ? <SecretDisplay secrets={state.secrets} /> : null}
-      <form onSubmit={state.submit}>
-        <label>
-          Password
-          <input
+      <Box as="form" display="grid" gap="4" onSubmit={state.submit}>
+        <AuthField label="Password">
+          <Input
             aria-label="Password"
             type="password"
             autoComplete="current-password"
             value={state.password}
             onChange={(event) => state.setPassword(event.target.value)}
           />
-        </label>
-        <label>
-          Six-digit code
-          <input aria-label="Six-digit code" value={state.code} onChange={(event) => state.setCode(event.target.value)} />
-        </label>
-        <label>
-          <input type="checkbox" aria-label="I have saved my recovery codes" checked={state.saved} onChange={(event) => state.setSaved(event.target.checked)} />
-          I have saved my recovery codes
-        </label>
-        <button type="submit">Complete setup</button>
-      </form>
+        </AuthField>
+        <AuthField label="Six-digit code">
+          <Input aria-label="Six-digit code" inputMode="numeric" value={state.code} onChange={(event) => state.setCode(event.target.value)} />
+        </AuthField>
+        <SavedCodesCheckbox checked={state.saved} onChange={state.setSaved} />
+        <Button type="submit" colorPalette="green">Complete setup</Button>
+      </Box>
       {state.error ? <Message text={state.error} /> : null}
-      <p>
-        <a href="/setup/restart">Restart setup</a>
-      </p>
-    </main>
+      <Text fontSize="sm"><Link to="/setup/restart">Restart setup</Link></Text>
+    </AuthPage>
   );
 }
 
@@ -492,34 +582,29 @@ function RestartPage() {
   }
 
   return (
-    <main>
-      <h1>Restart setup</h1>
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Restart setup</Heading>
       {!secrets ? (
-        <form onSubmit={restart}>
-          <label>
-            Password
-            <input aria-label="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-          </label>
-          <button type="submit">Restart setup</button>
-        </form>
+        <Box as="form" display="grid" gap="4" onSubmit={restart}>
+          <AuthField label="Password">
+            <Input aria-label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          </AuthField>
+          <Button type="submit" colorPalette="green">Restart setup</Button>
+        </Box>
       ) : (
         <>
           <SecretDisplay secrets={secrets} />
-          <form onSubmit={complete}>
-            <label>
-              Six-digit code
-              <input aria-label="Six-digit code" value={code} onChange={(event) => setCode(event.target.value)} />
-            </label>
-            <label>
-              <input type="checkbox" aria-label="I have saved my recovery codes" checked={saved} onChange={(event) => setSaved(event.target.checked)} />
-              I have saved my recovery codes
-            </label>
-            <button type="submit">Complete setup</button>
-          </form>
+          <Box as="form" display="grid" gap="4" onSubmit={complete}>
+            <AuthField label="Six-digit code">
+              <Input aria-label="Six-digit code" inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value)} />
+            </AuthField>
+            <SavedCodesCheckbox checked={saved} onChange={setSaved} />
+            <Button type="submit" colorPalette="green">Complete setup</Button>
+          </Box>
         </>
       )}
       {error ? <Message text={error} /> : null}
-    </main>
+    </AuthPage>
   );
 }
 
@@ -528,26 +613,29 @@ function AccountPage() {
   const account = context?.account;
 
   return (
-    <main>
-      <h1>Account</h1>
-      <dl>
-        <dt aria-label="Email">Email</dt>
-        <dd>{account?.email}</dd>
-        <dt aria-label="Email verified">Email verified</dt>
-        <dd>Verified</dd>
-        <dt aria-label="Two-factor authentication">Two-factor authentication</dt>
-        <dd>On</dd>
-        <dt aria-label="Gateway access">Gateway access</dt>
-        <dd>{account?.gatewayEntitlement === 'GRANTED' ? 'Granted' : account?.gatewayEntitlement === 'REVOKED' ? 'Revoked' : 'Not granted'}</dd>
-        <dt aria-label="Session expires">Session expires</dt>
-        <dd>{account?.session.absoluteExpiresAt ?? 'Unknown'}</dd>
-      </dl>
-      <p>
-        <a href="/account/password">Change password</a> · <a href="/account/authenticator">Replace authenticator</a> ·{' '}
-        <a href="/account/recovery-codes">Generate new recovery codes</a> ·{' '}
-        <a href="/account/gateway-keys">Gateway keys</a>
-      </p>
-    </main>
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Account</Heading>
+      <Grid as="dl" templateColumns={{ base: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }} gap="3">
+        {[
+          ['Email', account?.email ?? 'Unknown'],
+          ['Email verified', 'Verified'],
+          ['Two-factor authentication', 'On'],
+          ['Gateway access', account?.gatewayEntitlement === 'GRANTED' ? 'Granted' : account?.gatewayEntitlement === 'REVOKED' ? 'Revoked' : 'Not granted'],
+          ['Session expires', account?.session.absoluteExpiresAt ?? 'Unknown'],
+        ].map(([label, value]) => (
+          <Box key={label} p="3" borderRadius="md" bg="governance.canvas">
+            <Text as="dt" color="governance.muted" fontSize="xs">{label}</Text>
+            <Text as="dd" mt="1" fontSize="sm" fontWeight="semibold">{value}</Text>
+          </Box>
+        ))}
+      </Grid>
+      <Stack align="flex-start" gap="2" fontSize="sm">
+        <ChakraLink asChild><Link to="/account/password">Change password</Link></ChakraLink>
+        <ChakraLink asChild><Link to="/account/authenticator">Replace authenticator</Link></ChakraLink>
+        <ChakraLink asChild><Link to="/account/recovery-codes">Generate new recovery codes</Link></ChakraLink>
+        <ChakraLink asChild><Link to="/account/gateway-keys">Gateway keys</Link></ChakraLink>
+      </Stack>
+    </AuthPage>
   );
 }
 
@@ -573,20 +661,19 @@ function PasswordPage() {
   }
 
   return (
-    <main>
-      <h1>Change password</h1>
-      <form
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Change password</Heading>
+      <Box as="form" display="grid" gap="4"
         onSubmit={(event) => {
           event.preventDefault();
           void change();
         }}
       >
-        <label>
-          New password
-          <input aria-label="New password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </label>
-        <button type="submit">Change password</button>
-      </form>
+        <AuthField label="New password">
+          <Input aria-label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        </AuthField>
+        <Button type="submit" colorPalette="green">Change password</Button>
+      </Box>
       {status ? <Status text={status} /> : null}
       {error ? <Message text={error} /> : null}
       <StepUpDialog
@@ -597,7 +684,7 @@ function PasswordPage() {
           void change();
         }}
       />
-    </main>
+    </AuthPage>
   );
 }
 
@@ -653,25 +740,21 @@ function AuthenticatorPage() {
   }
 
   return (
-    <main>
-      <h1>Replace authenticator</h1>
-      {!secrets ? <button type="button" onClick={start}>Start replacement</button> : null}
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Replace authenticator</Heading>
+      {!secrets ? <Button colorPalette="green" onClick={start}>Start replacement</Button> : null}
       {secrets ? (
         <>
           <SecretDisplay secrets={secrets} />
-          <p>Your current authenticator keeps working until you finish this replacement.</p>
-          <form onSubmit={complete}>
-            <label>
-              Six-digit code
-              <input aria-label="Six-digit code" value={code} onChange={(event) => setCode(event.target.value)} />
-            </label>
-            <label>
-              <input type="checkbox" aria-label="I have saved my recovery codes" checked={saved} onChange={(event) => setSaved(event.target.checked)} />
-              I have saved my recovery codes
-            </label>
-            <button type="submit">Complete replacement</button>
-          </form>
-          <button type="button" onClick={cancel}>Cancel replacement</button>
+          <Text color="governance.muted">Your current authenticator keeps working until you finish this replacement.</Text>
+          <Box as="form" display="grid" gap="4" onSubmit={complete}>
+            <AuthField label="Six-digit code">
+              <Input aria-label="Six-digit code" inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value)} />
+            </AuthField>
+            <SavedCodesCheckbox checked={saved} onChange={setSaved} />
+            <Button type="submit" colorPalette="green">Complete replacement</Button>
+          </Box>
+          <Button variant="outline" onClick={cancel}>Cancel replacement</Button>
         </>
       ) : null}
       {status ? <Status text={status} /> : null}
@@ -687,7 +770,7 @@ function AuthenticatorPage() {
           }
         }}
       />
-    </main>
+    </AuthPage>
   );
 }
 
@@ -787,23 +870,22 @@ function RecoveryGenerationPage() {
   }
 
   return (
-    <main>
-      <h1>Generate new recovery codes</h1>
-      {!codes ? <button type="button" onClick={start}>Generate new recovery codes</button> : null}
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Generate new recovery codes</Heading>
+      {!codes ? <Button colorPalette="green" onClick={start}>Generate new recovery codes</Button> : null}
       {codes ? (
         <>
-          <p>Generating new codes revokes the previous set after you confirm you saved the new one.</p>
-          <ol aria-label="Recovery codes">
+          <Text color="governance.muted">Generating new codes revokes the previous set after you confirm you saved the new one.</Text>
+          <Grid as="ol" aria-label="Recovery codes" templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }} gap="2" listStyle="none" p="0" m="0">
             {codes.map((value) => (
-              <li key={value}>{value}</li>
+              <Code as="li" key={value} p="2" borderRadius="md" textAlign="center">{value}</Code>
             ))}
-          </ol>
-          <label>
-            <input type="checkbox" aria-label="I have saved my recovery codes" checked={saved} onChange={(event) => setSaved(event.target.checked)} />
-            I have saved my recovery codes
-          </label>
-          <button type="button" onClick={complete}>Continue</button>
-          <button type="button" onClick={cancel}>Cancel</button>
+          </Grid>
+          <SavedCodesCheckbox checked={saved} onChange={setSaved} />
+          <HStack gap="2">
+            <Button colorPalette="green" onClick={complete}>Continue</Button>
+            <Button variant="outline" onClick={cancel}>Cancel</Button>
+          </HStack>
         </>
       ) : null}
       {status ? <Status text={status} /> : null}
@@ -816,23 +898,42 @@ function RecoveryGenerationPage() {
           void start();
         }}
       />
-    </main>
+    </AuthPage>
   );
 }
 
 function SignedOutPage() {
   return (
-    <main>
-      <h1>Signed out</h1>
-      <p>Your session has ended.</p>
-      <a href="/sign-in">Sign in</a>
-    </main>
+    <AuthPage>
+      <Heading fontFamily="heading" fontSize="2xl">Signed out</Heading>
+      <Text color="governance.muted">Your session has ended.</Text>
+      <ChakraLink asChild><Link to="/sign-in">Sign in</Link></ChakraLink>
+    </AuthPage>
   );
 }
 
 export function AuthenticationRoutes() {
+  const { pathname } = useLocation();
+  const showAuthenticationHeader = [
+    '/sign-in',
+    '/register',
+    '/verify',
+    '/forgot-password',
+    '/reset-password',
+    '/signed-out',
+  ].includes(pathname);
+
   return (
-    <Routes>
+    <Box
+      minH="100vh"
+      bg={showAuthenticationHeader ? 'governance.canvas' : undefined}
+      bgImage={showAuthenticationHeader
+        ? 'linear-gradient(rgba(20,107,89,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(20,107,89,0.045) 1px, transparent 1px)'
+        : undefined}
+      bgSize="36px 36px"
+    >
+      {showAuthenticationHeader ? <ApplicationHeader variant="public" /> : null}
+      <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -905,7 +1006,8 @@ export function AuthenticationRoutes() {
           }
         />
         <Route path="/signed-out" element={<SignedOutPage />} />
-        <Route path="*" element={<Home />} />
-    </Routes>
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Box>
   );
 }

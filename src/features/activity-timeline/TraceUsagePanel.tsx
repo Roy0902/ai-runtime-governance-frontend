@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Badge, Box, Flex, Heading, Table, Text } from '@chakra-ui/react';
 import { useAuthentication } from '../../AuthenticationContext';
 import type { ModelUsage } from '../../api/Usage';
 import { StatusBadge } from './ActivityTimelinePresentation';
@@ -62,87 +63,87 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
   }, [send, traceId]);
 
   return (
-    <section className="usage-panel" aria-labelledby="usage-heading">
-      <div className="timeline-heading">
-        <div>
-          <p className="section-eyebrow">Provider accounting</p>
-          <h2 id="usage-heading">Model usage</h2>
-        </div>
-        {usage ? <span className="trace-count">{usage.length} calls</span> : null}
-      </div>
+    <Box as="section" aria-labelledby="usage-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+      <Flex justify="space-between" align="center" gap="3" mb="4">
+        <Box>
+          <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Provider accounting</Text>
+          <Heading id="usage-heading" fontFamily="heading" fontSize="xl">Model usage</Heading>
+        </Box>
+        {usage ? <Badge colorPalette="gray" variant="subtle">{usage.length} calls</Badge> : null}
+      </Flex>
 
-      {loading ? <p role="status">Loading model usage…</p> : null}
-      {error ? <p className="read-error" role="alert">{error}</p> : null}
+      {loading ? <Text role="status" color="governance.muted">Loading model usage…</Text> : null}
+      {error ? <Text role="alert" p="3" borderRadius="md" bg="red.50" color="red.800">{error}</Text> : null}
       {!loading && !error && usage && usage.length === 0 ? (
-        <p role="status">No model usage is reported for this trace.</p>
+        <Text role="status" py="8" color="governance.muted" textAlign="center">No model usage is reported for this trace.</Text>
       ) : null}
 
       {usage && usage.length > 0 ? (
-        <div className="usage-table-wrap">
-          <table className="usage-table">
-            <caption className="visually-hidden">Model usage by call</caption>
-            <thead>
-              <tr>
-                <th scope="col">Model</th>
-                <th scope="col">Input</th>
-                <th scope="col">Output</th>
-                <th scope="col">Cached</th>
-                <th scope="col">Reasoning</th>
-                <th scope="col">Total</th>
-                <th scope="col">Cost</th>
-                <th scope="col">Latency</th>
-                <th scope="col">First byte</th>
-                <th scope="col">Outcome</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Table.ScrollArea>
+          <Table.Root native size="sm" interactive>
+            <Table.Caption>Model usage by call</Table.Caption>
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeader>Model</Table.ColumnHeader>
+                <Table.ColumnHeader>Input</Table.ColumnHeader>
+                <Table.ColumnHeader>Output</Table.ColumnHeader>
+                <Table.ColumnHeader>Cached</Table.ColumnHeader>
+                <Table.ColumnHeader>Reasoning</Table.ColumnHeader>
+                <Table.ColumnHeader>Total</Table.ColumnHeader>
+                <Table.ColumnHeader>Cost</Table.ColumnHeader>
+                <Table.ColumnHeader>Latency</Table.ColumnHeader>
+                <Table.ColumnHeader>First byte</Table.ColumnHeader>
+                <Table.ColumnHeader>Outcome</Table.ColumnHeader>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
               {usage.map((row) => (
-                <tr key={row.id}>
-                  <th scope="row">
-                    <span>{modelLabel(row)}</span>
-                    <small className="usage-subtle">
+                <Table.Row key={row.id}>
+                  <Table.Cell fontWeight="semibold">
+                    <Text>{modelLabel(row)}</Text>
+                    <Text mt="1" color="governance.muted" fontSize="xs">
                       {row.stream ? 'stream' : 'non-stream'} · {row.provider ?? 'provider not reported'}
-                    </small>
+                    </Text>
                     {row.finishReasons.length ? (
-                      <small className="usage-subtle">finish: {row.finishReasons.join(', ')}</small>
+                      <Text color="governance.muted" fontSize="xs">finish: {row.finishReasons.join(', ')}</Text>
                     ) : null}
                     {row.toolCallNames.length ? (
-                      <small className="usage-subtle">tools: {row.toolCallNames.join(', ')}</small>
+                      <Text color="governance.muted" fontSize="xs">tools: {row.toolCallNames.join(', ')}</Text>
                     ) : null}
                     {row.errorCode || row.errorType ? (
-                      <small className="usage-subtle usage-error">
+                      <Text color="red.700" fontSize="xs">
                         {[row.errorType, row.errorCode].filter(Boolean).join(': ')}
-                      </small>
+                      </Text>
                     ) : null}
-                  </th>
-                  <td>{tokens(row.inputTokens)}</td>
-                  <td>{tokens(row.outputTokens)}</td>
-                  <td>{tokens(row.cachedInputTokens)}</td>
-                  <td>{tokens(row.reasoningOutputTokens)}</td>
-                  <td>{tokens(row.totalTokens)}</td>
-                  <td>
+                  </Table.Cell>
+                  <Table.Cell>{tokens(row.inputTokens)}</Table.Cell>
+                  <Table.Cell>{tokens(row.outputTokens)}</Table.Cell>
+                  <Table.Cell>{tokens(row.cachedInputTokens)}</Table.Cell>
+                  <Table.Cell>{tokens(row.reasoningOutputTokens)}</Table.Cell>
+                  <Table.Cell>{tokens(row.totalTokens)}</Table.Cell>
+                  <Table.Cell>
                     <span>{money(row.totalCostUsd, row.currency)}</span>
                     {row.providerReportedCostUsd !== null ? (
-                      <small className="usage-subtle">
+                      <Text color="governance.muted" fontSize="xs">
                         provider: {money(row.providerReportedCostUsd, row.currency)}
-                      </small>
+                      </Text>
                     ) : null}
-                  </td>
-                  <td>{duration(row.durationMs)}</td>
-                  <td>{duration(row.timeToFirstByteMs)}</td>
-                  <td><StatusBadge value={row.outcome} /></td>
-                </tr>
+                  </Table.Cell>
+                  <Table.Cell>{duration(row.durationMs)}</Table.Cell>
+                  <Table.Cell>{duration(row.timeToFirstByteMs)}</Table.Cell>
+                  <Table.Cell><StatusBadge value={row.outcome} /></Table.Cell>
+                </Table.Row>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Table.Body>
+          </Table.Root>
+        </Table.ScrollArea>
       ) : null}
 
       {usage?.some((row) => row.captureTruncated) ? (
-        <p className="stale-note" role="note">
+        <Text role="note" mt="4" p="3" borderRadius="md" bg="orange.50" color="orange.900" fontSize="sm">
           At least one response exceeded the capture limit; token and cost values may be partial.
-        </p>
+        </Text>
       ) : null}
-    </section>
+    </Box>
   );
 }

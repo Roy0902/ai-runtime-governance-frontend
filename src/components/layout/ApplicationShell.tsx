@@ -1,51 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Box, Link, Text } from '@chakra-ui/react';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthentication } from '../../AuthenticationContext';
 import { ApiError } from '../../ApplicationApiClient';
-
-function AppHeader({
-  previewMode = false,
-  email,
-  onSignOut,
-  pending = false,
-}: {
-  previewMode?: boolean;
-  email?: string;
-  onSignOut?: () => void;
-  pending?: boolean;
-}) {
-  return (
-    <header className="app-header">
-      <div className="app-header-inner">
-        <Link className="app-brand" to={previewMode ? '/activity-preview' : '/activity'}>
-          <span className="app-brand-mark" aria-hidden="true">AR</span>
-          <span>
-            <strong>AI Runtime Governance</strong>
-            <small>Runtime activity</small>
-          </span>
-        </Link>
-        {previewMode ? (
-          <nav className="app-nav app-preview-nav" aria-label="Preview navigation">
-            <Link to="/sign-in">Sign in</Link>
-          </nav>
-        ) : (
-          <>
-            <nav className="app-nav" aria-label="Main navigation">
-              <NavLink to="/activity">Activity</NavLink>
-              <NavLink to="/account">Account</NavLink>
-            </nav>
-            <div className="app-user">
-              <span title={email ?? ''}>{email}</span>
-              <button type="button" onClick={onSignOut} disabled={pending}>
-                {pending ? 'Signing out…' : 'Sign out'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </header>
-  );
-}
+import { ApplicationHeader } from './ApplicationHeader';
 
 function errorText(error: unknown): string {
   if (error instanceof ApiError) {
@@ -56,11 +14,13 @@ function errorText(error: unknown): string {
 
 export function ActivityTimelinePreviewShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#main-content">Skip to main content</a>
-      <AppHeader previewMode />
-      <div id="main-content" tabIndex={-1}>{children}</div>
-    </div>
+    <Box minH="100vh">
+      <Link position="fixed" zIndex="20" top="-16" left="4" _focus={{ top: '4' }} href="#main-content">
+        Skip to main content
+      </Link>
+      <ApplicationHeader variant="preview" />
+      <Box id="main-content" tabIndex={-1}>{children}</Box>
+    </Box>
   );
 }
 
@@ -97,17 +57,22 @@ export function ApplicationShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#main-content">Skip to main content</a>
-      <AppHeader
+    <Box minH="100vh">
+      <Link position="fixed" zIndex="20" top="-16" left="4" _focus={{ top: '4' }} href="#main-content">
+        Skip to main content
+      </Link>
+      <ApplicationHeader
+        variant="authenticated"
         email={context?.account?.email}
         onSignOut={() => { void signOut(); }}
         pending={pending}
       />
       {error || refreshError ? (
-        <p className="shell-error" role="alert">{error ?? refreshError}</p>
+        <Text role="alert" w="min(100% - 3rem, 1440px)" mx="auto" mt="4" p="3" borderRadius="md" bg="red.50" color="red.800">
+          {error ?? refreshError}
+        </Text>
       ) : null}
-      <div id="main-content" tabIndex={-1}>{children}</div>
-    </div>
+      <Box id="main-content" tabIndex={-1}>{children}</Box>
+    </Box>
   );
 }

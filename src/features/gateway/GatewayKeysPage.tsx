@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Badge, Box, Button, Code, Container, Field, Flex, Grid, Heading, HStack, Input, Link as ChakraLink, Stack, Table, Text } from '@chakra-ui/react';
+import { Copy, RefreshCw, X } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import { useAuthentication } from '../../AuthenticationContext';
 import type { GatewayKeySummary, GatewaySetup } from '../../api/GatewayKeys';
@@ -159,82 +161,68 @@ export function GatewayKeysPage() {
   }
 
   return (
-    <main className="activity-main gateway-main">
-      <div className="activity-heading">
+    <Container as="main" maxW="1440px" py={{ base: '6', md: '10' }} px={{ base: '4', md: '8' }}>
+      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap" mb="6">
         <div>
-          <p className="section-eyebrow">Access</p>
-          <h1>Gateway keys</h1>
-          <p className="activity-intro">
+          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Access</Text>
+          <Heading fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Gateway keys</Heading>
+          <Text mt="2" maxW="52rem" color="governance.muted">
             Create a key for an agent, point the agent at the gateway base URL, and route model
             traffic through the guarded endpoint. The upstream provider key stays on the server.
-          </p>
+          </Text>
         </div>
-        <button className="button-secondary" type="button" onClick={() => { void load(); }} disabled={loading}>
-          Refresh
-        </button>
-      </div>
+        <Button variant="outline" type="button" onClick={() => { void load(); }} disabled={loading}>
+          <RefreshCw size={16} aria-hidden="true" /> Refresh
+        </Button>
+      </Flex>
 
-      <p>
-        <Link to="/account">Back to account</Link>
-      </p>
+      <ChakraLink asChild display="inline-flex" mb="5" fontSize="sm"><Link to="/account">Back to account</Link></ChakraLink>
 
       {!entitled ? (
-        <p className="notice notice-warning" role="status">
+        <Text role="status" mb="5" p="4" borderRadius="lg" bg="orange.50" color="orange.900" fontSize="sm">
           Gateway access is not granted for this account. You can view and revoke existing keys,
           but a host operator must grant gateway permission before new keys can be created.
-        </p>
+        </Text>
       ) : null}
 
-      <section className="gateway-panel" aria-labelledby="usage-summary-heading">
-        <div className="panel-heading">
-          <div>
-            <p className="section-eyebrow">Last 30 days</p>
-            <h2 id="usage-summary-heading">Usage</h2>
-          </div>
-        </div>
+      <Box as="section" aria-labelledby="usage-summary-heading" mb="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+        <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Last 30 days</Text>
+        <Heading id="usage-summary-heading" mb="4" fontFamily="heading" fontSize="xl">Usage</Heading>
         {usageError ? (
-          <p className="usage-subtle" role="status">Usage summary is unavailable.</p>
+          <Text role="status" color="governance.muted" fontSize="sm">Usage summary is unavailable.</Text>
         ) : null}
         {usageSummary ? (
           <>
-            <div className="usage-summary-grid">
-              <div>
-                <span>Calls</span>
-                <strong>{formatTokens(usageSummary.calls)}</strong>
-              </div>
-              <div>
-                <span>Input tokens</span>
-                <strong>{formatTokens(usageSummary.inputTokens)}</strong>
-              </div>
-              <div>
-                <span>Output tokens</span>
-                <strong>{formatTokens(usageSummary.outputTokens)}</strong>
-              </div>
-              <div>
-                <span>Total tokens</span>
-                <strong>{formatTokens(usageSummary.totalTokens)}</strong>
-              </div>
-              <div>
-                <span>Estimated cost</span>
-                <strong>{formatCost(usageSummary.totalCostUsd, usageSummary.currency)}</strong>
-              </div>
-            </div>
-            <p className="usage-subtle">
+            <Grid templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }} gap="3">
+              {[
+                ['Calls', formatTokens(usageSummary.calls)],
+                ['Input tokens', formatTokens(usageSummary.inputTokens)],
+                ['Output tokens', formatTokens(usageSummary.outputTokens)],
+                ['Total tokens', formatTokens(usageSummary.totalTokens)],
+                ['Estimated cost', formatCost(usageSummary.totalCostUsd, usageSummary.currency)],
+              ].map(([label, value]) => (
+                <Box key={label} p="3" borderRadius="lg" bg="governance.canvas">
+                  <Text color="governance.muted" fontSize="xs">{label}</Text>
+                  <Text mt="1" color="governance.ink" fontSize="lg" fontWeight="bold">{value}</Text>
+                </Box>
+              ))}
+            </Grid>
+            <Text mt="3" color="governance.muted" fontSize="xs">
               Cost is shown only when the deployment has a price configured for the model.
-            </p>
+            </Text>
           </>
         ) : null}
-      </section>
+      </Box>
 
-      <section className="gateway-panel" aria-labelledby="create-key-heading">
-        <div className="panel-heading">
-          <div>
-            <p className="section-eyebrow">New key</p>
-            <h2 id="create-key-heading">Create a gateway key</h2>
-          </div>
-        </div>
-        <form
-          className="gateway-create-form"
+      <Box as="section" aria-labelledby="create-key-heading" mb="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+        <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">New key</Text>
+        <Heading id="create-key-heading" mb="4" fontFamily="heading" fontSize="xl">Create a gateway key</Heading>
+        <Box
+          as="form"
+          display="flex"
+          alignItems="flex-end"
+          flexWrap="wrap"
+          gap="3"
           onSubmit={(event) => {
             event.preventDefault();
             if (!entitled || creating) {
@@ -243,158 +231,140 @@ export function GatewayKeysPage() {
             void create(name.trim() || 'default');
           }}
         >
-          <label>
-            Key name
-            <input
+          <Field.Root flex="1 1 16rem">
+            <Field.Label>Key name</Field.Label>
+            <Input
               aria-label="Key name"
               value={name}
               maxLength={64}
               onChange={(event) => setName(event.target.value)}
               placeholder="laptop"
             />
-          </label>
-          <button type="submit" disabled={!entitled || creating}>
+          </Field.Root>
+          <Button type="submit" disabled={!entitled || creating} colorPalette="green">
             {creating ? 'Creating…' : 'Create key'}
-          </button>
-        </form>
-        <p className="gateway-help">
+          </Button>
+        </Box>
+        <Text mt="3" color="governance.muted" fontSize="xs">
           Use 1–64 letters, digits, spaces, dots, underscores or hyphens. Up to five active keys
           are allowed per account.
-        </p>
-      </section>
+        </Text>
+      </Box>
 
-      {status ? <p className="notice notice-success" role="status">{status}</p> : null}
-      {error ? <p className="read-error" role="alert">{error}</p> : null}
-      {copyStatus ? <p className="activity-status" role="status">{copyStatus}</p> : null}
+      {status ? <Text role="status" mb="4" p="3" borderRadius="md" bg="green.50" color="green.900">{status}</Text> : null}
+      {error ? <Text role="alert" mb="4" p="3" borderRadius="md" bg="red.50" color="red.800">{error}</Text> : null}
+      {copyStatus ? <Text role="status" mb="4" color="governance.muted" fontSize="sm">{copyStatus}</Text> : null}
 
       {created ? (
-        <section className="gateway-panel gateway-secret" aria-labelledby="new-key-heading">
-          <div className="panel-heading">
-            <div>
-              <p className="section-eyebrow">Shown once</p>
-              <h2 id="new-key-heading">New key: {created.name}</h2>
-            </div>
-            <button className="button-secondary" type="button" onClick={() => setCreated(null)}>
-              Hide
-            </button>
-          </div>
-          <p className="notice notice-warning" role="alert">
+        <Box as="section" aria-labelledby="new-key-heading" mb="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="green.300" borderRadius="xl" bg="white">
+          <Flex justify="space-between" align="center" gap="4" wrap="wrap">
+            <Box>
+              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Shown once</Text>
+              <Heading id="new-key-heading" fontFamily="heading" fontSize="xl">New key: {created.name}</Heading>
+            </Box>
+            <Button size="sm" variant="outline" onClick={() => setCreated(null)}><X size={16} aria-hidden="true" /> Hide</Button>
+          </Flex>
+          <Text role="alert" mt="4" p="3" borderRadius="md" bg="orange.50" color="orange.900" fontSize="sm">
             This token is shown once. Copy it now; it cannot be retrieved later.
-          </p>
+          </Text>
 
-          <div className="gateway-secret-row">
-            <output aria-label="Gateway key">{created.token}</output>
-            <button type="button" onClick={() => { void copy(created.token, 'Gateway key'); }}>
-              Copy key
-            </button>
-          </div>
+          <HStack mt="4" align="stretch" gap="2" flexWrap="wrap">
+            <Code aria-label="Gateway key" flex="1 1 20rem" p="3" borderRadius="md" fontSize="sm" overflowWrap="anywhere">{created.token}</Code>
+            <Button onClick={() => { void copy(created.token, 'Gateway key'); }}><Copy size={16} aria-hidden="true" /> Copy key</Button>
+          </HStack>
 
-          <dl className="gateway-meta">
-            <div>
-              <dt>Base URL</dt>
-              <dd><code>{created.baseUrl}</code></dd>
-            </div>
-            <div>
-              <dt>Chat endpoint</dt>
-              <dd><code>{created.baseUrl}{created.chatCompletionsPath}</code></dd>
-            </div>
-            <div>
-              <dt>Models</dt>
-              <dd>{created.models.length > 0 ? created.models.join(', ') : 'No models configured'}</dd>
-            </div>
-          </dl>
+          <Grid mt="5" templateColumns={{ base: '1fr', md: 'repeat(3, minmax(0, 1fr))' }} gap="3">
+            {[
+              ['Base URL', created.baseUrl],
+              ['Chat endpoint', `${created.baseUrl}${created.chatCompletionsPath}`],
+              ['Models', created.models.length > 0 ? created.models.join(', ') : 'No models configured'],
+            ].map(([label, value]) => (
+              <Box key={label} minW="0" p="3" borderRadius="md" bg="governance.canvas">
+                <Text color="governance.muted" fontSize="xs">{label}</Text>
+                <Text mt="1" overflowWrap="anywhere" fontSize="sm">{value}</Text>
+              </Box>
+            ))}
+          </Grid>
 
-          <h3>OpenCode</h3>
-          <pre className="gateway-snippet">{created.openCodeConfig}</pre>
-          <button type="button" onClick={() => { void copy(created.openCodeConfig, 'OpenCode config'); }}>
-            Copy OpenCode config
-          </button>
+          <Heading as="h3" mt="6" mb="2" fontFamily="heading" fontSize="md">OpenCode</Heading>
+          <Box as="pre" maxH="20rem" overflow="auto" p="4" borderRadius="lg" bg="governance.ink" color="white" fontFamily="mono" fontSize="xs" whiteSpace="pre-wrap" overflowWrap="anywhere">{created.openCodeConfig}</Box>
+          <Button mt="2" variant="outline" onClick={() => { void copy(created.openCodeConfig, 'OpenCode config'); }}><Copy size={16} aria-hidden="true" /> Copy OpenCode config</Button>
 
-          <h3>VS Code Copilot BYOK</h3>
-          <pre className="gateway-snippet">{created.vsCodeConfig}</pre>
-          <button type="button" onClick={() => { void copy(created.vsCodeConfig, 'VS Code config'); }}>
-            Copy VS Code config
-          </button>
-        </section>
+          <Heading as="h3" mt="6" mb="2" fontFamily="heading" fontSize="md">VS Code Copilot BYOK</Heading>
+          <Box as="pre" maxH="20rem" overflow="auto" p="4" borderRadius="lg" bg="governance.ink" color="white" fontFamily="mono" fontSize="xs" whiteSpace="pre-wrap" overflowWrap="anywhere">{created.vsCodeConfig}</Box>
+          <Button mt="2" variant="outline" onClick={() => { void copy(created.vsCodeConfig, 'VS Code config'); }}><Copy size={16} aria-hidden="true" /> Copy VS Code config</Button>
+        </Box>
       ) : null}
 
-      <section className="gateway-panel" aria-labelledby="keys-heading">
-        <div className="panel-heading">
-          <div>
-            <p className="section-eyebrow">Existing keys</p>
-            <h2 id="keys-heading">Keys</h2>
-          </div>
-          <span className="trace-count">{keys?.length ?? 0} keys</span>
-        </div>
+      <Box as="section" aria-labelledby="keys-heading" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+        <Flex justify="space-between" align="center" gap="4" mb="4">
+          <Box>
+            <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Existing keys</Text>
+            <Heading id="keys-heading" fontFamily="heading" fontSize="xl">Keys</Heading>
+          </Box>
+          <Badge colorPalette="gray" variant="subtle">{keys?.length ?? 0} keys</Badge>
+        </Flex>
 
-        {loading ? <p role="status">Loading keys…</p> : null}
+        {loading ? <Text role="status" color="governance.muted">Loading keys…</Text> : null}
         {listError ? (
-          <p className="read-error" role="alert">
-            {listError}{' '}
-            <button className="button-secondary" type="button" onClick={() => { void load(); }}>
+          <Flex role="alert" justify="space-between" align="center" gap="4" p="3" borderRadius="md" bg="red.50" color="red.800">
+            <Text>{listError}</Text>
+            <Button size="sm" variant="outline" onClick={() => { void load(); }}>
               Try again
-            </button>
-          </p>
+            </Button>
+          </Flex>
         ) : null}
         {!loading && !listError && keys && keys.length === 0 ? (
-          <p role="status">No gateway keys yet.</p>
+          <Text role="status" py="8" color="governance.muted" textAlign="center">No gateway keys yet.</Text>
         ) : null}
 
         {keys && keys.length > 0 ? (
-          <div className="gateway-table-wrap">
-            <table className="gateway-key-table">
-              <caption className="visually-hidden">Gateway keys</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Prefix</th>
-                  <th scope="col">Created</th>
-                  <th scope="col">Last used</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <Table.ScrollArea>
+            <Table.Root native size="sm" interactive>
+              <Table.Caption>Gateway keys</Table.Caption>
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeader>Name</Table.ColumnHeader>
+                  <Table.ColumnHeader>Prefix</Table.ColumnHeader>
+                  <Table.ColumnHeader>Created</Table.ColumnHeader>
+                  <Table.ColumnHeader>Last used</Table.ColumnHeader>
+                  <Table.ColumnHeader>Status</Table.ColumnHeader>
+                  <Table.ColumnHeader>Actions</Table.ColumnHeader>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
                 {keys.map((key) => (
-                  <tr key={key.id}>
-                    <th scope="row">{key.name}</th>
-                    <td><code>{key.tokenPrefix}…</code></td>
-                    <td>{formatDate(key.createdAt)}</td>
-                    <td>{formatDate(key.lastUsedAt)}</td>
-                    <td>{key.revokedAt ? 'Revoked' : 'Active'}</td>
-                    <td>
+                  <Table.Row key={key.id}>
+                    <Table.Cell fontWeight="semibold">{key.name}</Table.Cell>
+                    <Table.Cell><Code>{key.tokenPrefix}…</Code></Table.Cell>
+                    <Table.Cell>{formatDate(key.createdAt)}</Table.Cell>
+                    <Table.Cell>{formatDate(key.lastUsedAt)}</Table.Cell>
+                    <Table.Cell><Badge colorPalette={key.revokedAt ? 'gray' : 'green'} variant="subtle">{key.revokedAt ? 'Revoked' : 'Active'}</Badge></Table.Cell>
+                    <Table.Cell>
                       {key.revokedAt ? (
-                        <span className="gateway-muted">No actions</span>
+                        <Text color="governance.muted" fontSize="xs">No actions</Text>
                       ) : pendingRevoke?.id === key.id ? (
-                        <span className="gateway-actions">
-                          <button type="button" onClick={() => { void revoke(key.id, key.name); }}>
+                        <HStack gap="2">
+                          <Button size="xs" colorPalette="red" onClick={() => { void revoke(key.id, key.name); }}>
                             Confirm revoke
-                          </button>
-                          <button
-                            className="button-secondary"
-                            type="button"
-                            onClick={() => setPendingRevoke(null)}
-                          >
+                          </Button>
+                          <Button size="xs" variant="outline" onClick={() => setPendingRevoke(null)}>
                             Cancel
-                          </button>
-                        </span>
+                          </Button>
+                        </HStack>
                       ) : (
-                        <button
-                          className="button-secondary"
-                          type="button"
-                          onClick={() => setPendingRevoke({ id: key.id, name: key.name })}
-                        >
+                        <Button size="xs" variant="outline" colorPalette="red" onClick={() => setPendingRevoke({ id: key.id, name: key.name })}>
                           Revoke
-                        </button>
+                        </Button>
                       )}
-                    </td>
-                  </tr>
+                    </Table.Cell>
+                  </Table.Row>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table.Body>
+            </Table.Root>
+          </Table.ScrollArea>
         ) : null}
-      </section>
+      </Box>
 
       <StepUpDialog
         open={stepUp}
@@ -413,6 +383,6 @@ export function GatewayKeysPage() {
           }
         }}
       />
-    </main>
+    </Container>
   );
 }
