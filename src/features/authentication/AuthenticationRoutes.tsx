@@ -10,6 +10,7 @@ import { ApplicationErrorPage } from '../../components/ApplicationErrorPage';
 import { ApplicationHeader } from '../../components/layout/ApplicationHeader';
 import { RequireHuman } from '../../components/layout/RequireHuman';
 import { PageLoading } from '../../components/ui/PageLoading';
+import { SettingsLayout, SettingsPanel } from '../account/SettingsLayout';
 import { StepUpDialog } from './StepUpDialog';
 
 const GatewayKeysPage = lazy(() => import('../gateway/GatewayKeysPage')
@@ -108,6 +109,14 @@ function RequireSetup({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function AccountSettings({ children }: { children: ReactNode }) {
+  return (
+    <RequireHuman>
+      <SettingsLayout>{children}</SettingsLayout>
+    </RequireHuman>
+  );
+}
+
 function Home() {
   const { context } = useAuthentication();
   if (!context) {
@@ -140,6 +149,9 @@ function NotFoundPage() {
 function SignInPage() {
   const { send } = useAuthentication();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const verified = params.get('verified') === '1';
+  const [step, setStep] = useState<'credentials' | 'mfa'>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [factor, setFactor] = useState('');
@@ -148,15 +160,30 @@ function SignInPage() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    if (step === 'mfa' && !factor.trim()) {
+      setError('Enter your authenticator or recovery code.');
+      return;
+    }
     try {
-      const secondFactor = factor.trim()
+      const secondFactor = step === 'mfa'
         ? { kind: factor.replace(/-/g, '').length === 32 ? 'RECOVERY' : 'TOTP', code: factor }
         : undefined;
-      await send<AuthenticationContext>('/api/v1/auth/sign-in', 'POST', { email, password, secondFactor });
-      navigate('/activity');
+      const next = await send<AuthenticationContext>('/api/v1/auth/sign-in', 'POST', { email, password, secondFactor });
+      if (next.state === 'MFA_REQUIRED') {
+        setStep('mfa');
+        setFactor('');
+        return;
+      }
+      navigate(next.state === 'SETUP' ? '/setup/enroll' : '/activity', { replace: true });
     } catch (caught) {
       setError(errorText(caught));
     }
+  }
+
+  function useAnotherAccount() {
+    setStep('credentials');
+    setFactor('');
+    setError(null);
   }
 
   return (
@@ -167,24 +194,43 @@ function SignInPage() {
             <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
               Account access
             </Text>
-            <Heading fontSize="3xl">Sign in</Heading>
-            <Text mt="2" color="governance.muted">Continue to your governance workspace.</Text>
+            <Heading fontSize="3xl">{step === 'mfa' ? 'Enter your code' : 'Sign in'}</Heading>
+            {step === 'mfa' ? (
+              <Text mt="2" color="governance.muted">
+                Password accepted for <strong>{email}</strong>. Enter the code from your authenticator app, or one of your recovery codes.
+              </Text>
+            ) : (
+              <Text mt="2" color="governance.muted">Continue to your governance workspace.</Text>
+            )}
+            {verified && step === 'credentials' ? (
+              <Status text="Email verified. Sign in with your password to set up your authenticator next." />
+            ) : null}
           </Box>
           <Box as="form" display="grid" gap="4" onSubmit={submit}>
-            <Field.Root>
-              <Field.Label>Email</Field.Label>
-              <Input aria-label="Email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
-            </Field.Root>
-            <Field.Root>
-              <Field.Label>Password</Field.Label>
-              <Input aria-label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            </Field.Root>
-            <Field.Root>
-              <Field.Label>Authenticator or recovery code</Field.Label>
-              <Input aria-label="Authenticator or recovery code" value={factor} onChange={(event) => setFactor(event.target.value)} />
-            </Field.Root>
-            <Button type="submit" size="lg" colorPalette="green">Sign in</Button>
+            {step === 'credentials' ? (
+              <>
+                <Field.Root>
+                  <Field.Label>Email</Field.Label>
+                  <Input aria-label="Email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
+                </Field.Root>
+                <Field.Root>
+                  <Field.Label>Password</Field.Label>
+                  <Input aria-label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+                </Field.Root>
+              </>
+            ) : (
+              <Field.Root>
+                <Field.Label>Authenticator or recovery code</Field.Label>
+                <Input aria-label="Authenticator or recovery code" autoComplete="one-time-code" value={factor} onChange={(event) => setFactor(event.target.value)} />
+              </Field.Root>
+            )}
+            <Button type="submit" size="lg" colorPalette="green">
+              {step === 'mfa' ? 'Verify code' : 'Sign in'}
+            </Button>
           </Box>
+          {step === 'mfa' ? (
+            <Button type="button" variant="outline" onClick={useAnotherAccount}>Use a different account</Button>
+          ) : null}
         </Stack>
       </Box>
       {error ? <Message text={error} /> : null}
@@ -237,19 +283,18 @@ function RegisterPage() {
 
 function VerifyPage() {
   const { send } = useAuthentication();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [verified, setVerified] = useState(false);
 
   async function verify() {
     setError(null);
     try {
       await send<AuthenticationContext>('/api/v1/auth/email-verifications/consume', 'POST', { token });
-      setVerified(true);
-      setStatus('Email verified. Continue to set up your authenticator.');
+      navigate('/sign-in?verified=1', { replace: true });
     } catch (caught) {
       setError(errorText(caught));
     }
@@ -284,7 +329,6 @@ function VerifyPage() {
       </AuthField>
       <Button type="button" variant="outline" onClick={resend}>Send a new verification email</Button>
       {status ? <Status text={status} /> : null}
-      {verified ? <Text><Link to="/setup/enroll">Continue to setup</Link></Text> : null}
       {error ? <Message text={error} /> : null}
       </Stack>
     </AuthPage>
@@ -564,15 +608,17 @@ function AccountPage() {
   const account = context?.account;
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Account</Heading>
+    <SettingsPanel
+      eyebrow="Settings"
+      title="Account"
+      description="Review your account standing and choose a security setting from the menu."
+    >
       <Grid as="dl" templateColumns={{ base: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }} gap="3">
         {[
           ['Email', account?.email ?? 'Unknown'],
           ['Email verified', 'Verified'],
           ['Two-factor authentication', 'On'],
           ['Gateway access', account?.gatewayEntitlement === 'GRANTED' ? 'Granted' : account?.gatewayEntitlement === 'REVOKED' ? 'Revoked' : 'Not granted'],
-          ['Session expires', account?.session.absoluteExpiresAt ?? 'Unknown'],
         ].map(([label, value]) => (
           <Box key={label} p="3" borderRadius="md" bg="governance.canvas">
             <Text as="dt" color="governance.muted" fontSize="xs">{label}</Text>
@@ -580,13 +626,7 @@ function AccountPage() {
           </Box>
         ))}
       </Grid>
-      <Stack align="flex-start" gap="2" fontSize="sm">
-        <ChakraLink asChild><Link to="/account/password">Change password</Link></ChakraLink>
-        <ChakraLink asChild><Link to="/account/authenticator">Replace authenticator</Link></ChakraLink>
-        <ChakraLink asChild><Link to="/account/recovery-codes">Generate new recovery codes</Link></ChakraLink>
-        <ChakraLink asChild><Link to="/account/gateway-keys">Gateway keys</Link></ChakraLink>
-      </Stack>
-    </AuthPage>
+    </SettingsPanel>
   );
 }
 
@@ -612,8 +652,7 @@ function PasswordPage() {
   }
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Change password</Heading>
+    <SettingsPanel eyebrow="Security" title="Change password">
       <Box as="form" display="grid" gap="4"
         onSubmit={(event) => {
           event.preventDefault();
@@ -635,7 +674,7 @@ function PasswordPage() {
           void change();
         }}
       />
-    </AuthPage>
+    </SettingsPanel>
   );
 }
 
@@ -691,8 +730,7 @@ function AuthenticatorPage() {
   }
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Replace authenticator</Heading>
+    <SettingsPanel eyebrow="Security" title="Replace authenticator">
       {!secrets ? <Button colorPalette="green" onClick={start}>Start replacement</Button> : null}
       {secrets ? (
         <>
@@ -721,7 +759,7 @@ function AuthenticatorPage() {
           }
         }}
       />
-    </AuthPage>
+    </SettingsPanel>
   );
 }
 
@@ -821,8 +859,7 @@ function RecoveryGenerationPage() {
   }
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Generate new recovery codes</Heading>
+    <SettingsPanel eyebrow="Security" title="Generate new recovery codes">
       {!codes ? <Button colorPalette="green" onClick={start}>Generate new recovery codes</Button> : null}
       {codes ? (
         <>
@@ -849,7 +886,7 @@ function RecoveryGenerationPage() {
           void start();
         }}
       />
-    </AuthPage>
+    </SettingsPanel>
   );
 }
 
@@ -919,43 +956,43 @@ export function AuthenticationRoutes() {
         <Route
           path="/account"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <AccountPage />
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route
           path="/account/password"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <PasswordPage />
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route
           path="/account/authenticator"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <AuthenticatorPage />
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route
           path="/account/recovery-codes"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <RecoveryGenerationPage />
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route
           path="/account/gateway-keys"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <Suspense fallback={<PageLoading label="Loading gateway keys" />}>
                 <GatewayKeysPage />
               </Suspense>
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route path="/signed-out" element={<SignedOutPage />} />

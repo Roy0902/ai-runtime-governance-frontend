@@ -1,14 +1,9 @@
 import type { GuardOutcome, TraceDetail } from './ActivityTimelineTypes';
+import { formatDateTime } from '../../format/date';
 import { Badge, Box, Flex, Grid, Heading, HStack, Text } from '@chakra-ui/react';
 
 export function formatTime(value: string | null): string {
-  return value
-    ? new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'medium',
-        timeZone: 'UTC',
-      }).format(new Date(value)) + ' UTC'
-    : 'Not reported';
+  return formatDateTime(value, 'Not reported', 'utc');
 }
 
 export function statusLabel(value: string | null): string {

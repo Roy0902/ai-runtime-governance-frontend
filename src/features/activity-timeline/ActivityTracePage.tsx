@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { Badge, Box, Button, Container, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import type { EventNode } from './ActivityTimelineModel';
@@ -23,6 +23,13 @@ function failureCopy(error: unknown): { message: string; signIn: boolean } {
     if (error.status === 404) {
       return { message: 'Trace is unavailable.', signIn: false };
     }
+    if (error.status === 429 && error.retryAfterSeconds !== null) {
+      return {
+        message: `Too many activity views are open. Try again in ${error.retryAfterSeconds} seconds.`,
+        signIn: false,
+      };
+    }
+    return { message: error.message, signIn: false };
   }
   return { message: 'Activity could not be loaded.', signIn: false };
 }
@@ -173,31 +180,65 @@ export function ActivityTracePage() {
     refresh,
     loadMore,
   } = useTraceDetail(traceId);
-  const failure = error ? failureCopy(error) : null;
+  const apiError = error instanceof ApiError ? error : null;
+  const signInRequired = apiError?.status === 401;
+  const notFound = apiError?.status === 404;
+  const failure = error && !signInRequired && !notFound ? failureCopy(error) : null;
+  const showNoTrace = !loading && !trace && !failure && !signInRequired;
   const approvals = events.filter(
     (event): event is Extract<ActivityEvent, { kind: 'approval' }> =>
       !('tombstone' in event) && event.kind === 'approval',
   );
 
   return (
-    <Container as="main" maxW="1440px" py={{ base: '6', md: '10' }} px={{ base: '4', md: '8' }}>
-      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap" mb="6">
-        <div>
-          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Observability</Text>
-          <Heading fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Activity</Heading>
-          <Text mt="2" maxW="44rem" color="governance.muted">
-            Inspect reported agent, model, tool, guard, and approval activity without exposing payloads.
-          </Text>
-        </div>
-        <HStack gap="2">
-          <Button asChild size="sm" variant="outline"><Link to="/activity">Back to traces</Link></Button>
-          <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
-            Refresh
-          </Button>
-        </HStack>
+    <Box>
+      <Flex justify="flex-end" mb="4">
+        <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
+          Refresh trace
+        </Button>
       </Flex>
 
       {loading && !trace ? <Text role="status" color="governance.muted">Loading activity…</Text> : null}
+
+      {notFound || showNoTrace ? (
+        <Box
+          as="section"
+          aria-label="No trace"
+          p={{ base: '8', md: '12' }}
+          borderWidth="1px"
+          borderColor="governance.line"
+          borderRadius="xl"
+          bg="white"
+          textAlign="center"
+        >
+          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+            Trace detail
+          </Text>
+          <Heading fontFamily="heading" fontSize="xl">No trace found</Heading>
+          <Text mt="2" color="governance.muted" fontSize="sm">
+            This trace does not exist or is no longer available.
+          </Text>
+          <Button asChild mt="5" size="sm" variant="outline"><Link to="/activity">Back to activity</Link></Button>
+        </Box>
+      ) : null}
+
+      {signInRequired ? (
+        <Box
+          as="section"
+          p={{ base: '8', md: '12' }}
+          borderWidth="1px"
+          borderColor="governance.line"
+          borderRadius="xl"
+          bg="white"
+          textAlign="center"
+        >
+          <Heading fontFamily="heading" fontSize="xl">Sign in to view activity</Heading>
+          <Text mt="2" color="governance.muted" fontSize="sm">
+            Your session is not available. Sign in to continue.
+          </Text>
+          <Button asChild mt="5" size="sm" variant="outline"><Link to="/sign-in">Sign in</Link></Button>
+        </Box>
+      ) : null}
 
       {failure ? (
         <Flex role="alert" align="center" justify="space-between" gap="4" p="3" borderRadius="md" bg="red.50" color="red.800">
@@ -305,6 +346,6 @@ export function ActivityTracePage() {
           ) : null}
         </Box>
       ) : null}
-    </Container>
+    </Box>
   );
 }

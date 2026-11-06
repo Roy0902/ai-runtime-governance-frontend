@@ -12,18 +12,6 @@ function errorText(error: unknown): string {
   return 'Something went wrong. Try again.';
 }
 
-export function ActivityTimelinePreviewShell({ children }: { children: React.ReactNode }) {
-  return (
-    <Box minH="100vh">
-      <Link position="fixed" zIndex="20" top="-16" left="4" _focus={{ top: '4' }} href="#main-content">
-        Skip to main content
-      </Link>
-      <ApplicationHeader variant="preview" />
-      <Box id="main-content" tabIndex={-1}>{children}</Box>
-    </Box>
-  );
-}
-
 export function ApplicationShell({ children }: { children: React.ReactNode }) {
   const { context, send, refresh, refreshError } = useAuthentication();
   const navigate = useNavigate();

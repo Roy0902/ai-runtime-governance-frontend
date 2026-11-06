@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Badge, Box, Button, Code, Container, Field, Flex, Grid, Heading, HStack, Input, Link as ChakraLink, Table, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Code, Field, Flex, Grid, Heading, HStack, Input, Stack, Table, Text } from '@chakra-ui/react';
 import { Copy, RefreshCw, X } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import { useAuthentication } from '../../AuthenticationContext';
 import type { GatewayKeySummary, GatewaySetup } from '../../api/GatewayKeys';
 import type { UsageSummary } from '../../api/Usage';
+import { formatDateTime } from '../../format/date';
 import { StepUpDialog } from '../authentication/StepUpDialog';
 
 type PendingAction =
@@ -42,14 +42,7 @@ function formatCost(value: number | null, currency: string): string {
 }
 
 function formatDate(value: string | null): string {
-  if (!value) {
-    return 'Never';
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  return formatDateTime(value, 'Never', 'local', false);
 }
 
 export function GatewayKeysPage() {
@@ -161,11 +154,11 @@ export function GatewayKeysPage() {
   }
 
   return (
-    <Container as="main" maxW="1440px" py={{ base: '6', md: '10' }} px={{ base: '4', md: '8' }}>
-      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap" mb="6">
+    <Stack gap="6">
+      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap">
         <div>
           <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Access</Text>
-          <Heading fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Gateway keys</Heading>
+          <Heading as="h1" fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Gateway keys</Heading>
           <Text mt="2" maxW="52rem" color="governance.muted">
             Create a key for an agent, point the agent at the gateway base URL, and route model
             traffic through the guarded endpoint. The upstream provider key stays on the server.
@@ -175,8 +168,6 @@ export function GatewayKeysPage() {
           <RefreshCw size={16} aria-hidden="true" /> Refresh
         </Button>
       </Flex>
-
-      <ChakraLink asChild display="inline-flex" mb="5" fontSize="sm"><Link to="/account">Back to account</Link></ChakraLink>
 
       {!entitled ? (
         <Text role="status" mb="5" p="4" borderRadius="lg" bg="orange.50" color="orange.900" fontSize="sm">
@@ -321,7 +312,6 @@ export function GatewayKeysPage() {
         {keys && keys.length > 0 ? (
           <Table.ScrollArea>
             <Table.Root native size="sm" interactive>
-              <Table.Caption>Gateway keys</Table.Caption>
               <Table.Header>
                 <Table.Row>
                   <Table.ColumnHeader>Name</Table.ColumnHeader>
@@ -383,6 +373,6 @@ export function GatewayKeysPage() {
           }
         }}
       />
-    </Container>
+    </Stack>
   );
 }

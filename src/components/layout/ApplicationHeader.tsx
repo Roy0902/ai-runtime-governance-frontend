@@ -2,7 +2,7 @@ import { Box, Button, Drawer, Flex, HStack, IconButton, Link, Portal, Stack, Tex
 import { Activity, CircleUserRound, LogIn, LogOut, Menu, UserRound, X } from 'lucide-react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 
-type HeaderVariant = 'authenticated' | 'public' | 'preview' | 'error';
+type HeaderVariant = 'authenticated' | 'public' | 'error';
 
 export function ApplicationHeader({
   variant,
@@ -22,12 +22,10 @@ export function ApplicationHeader({
         { label: 'Account', to: '/account', icon: UserRound },
         ...(variant === 'error' ? [{ label: 'Sign in', to: '/sign-in', icon: LogIn }] : []),
       ]
-    : variant === 'preview'
-      ? [{ label: 'Sign in', to: '/sign-in', icon: LogIn }]
-      : [
-          { label: 'Sign in', to: '/sign-in', icon: LogIn },
-          { label: 'Create account', to: '/register', icon: CircleUserRound },
-        ];
+    : [
+        { label: 'Sign in', to: '/sign-in', icon: LogIn },
+        { label: 'Create account', to: '/register', icon: CircleUserRound },
+      ];
 
   return (
     <Drawer.Root key={pathname} placement="start" lazyMount unmountOnExit>
@@ -48,7 +46,7 @@ export function ApplicationHeader({
             </IconButton>
           </Drawer.Trigger>
           <Link asChild color="governance.ink" _hover={{ textDecoration: 'none' }}>
-            <RouterLink to={variant === 'preview' ? '/activity-preview' : '/'}>
+            <RouterLink to="/">
               <HStack gap="3">
                 <Flex
                   w="10"
