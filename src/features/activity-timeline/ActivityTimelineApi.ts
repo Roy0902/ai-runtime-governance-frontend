@@ -4,6 +4,7 @@ import type {
   EventTombstone,
   ExecutionStatus,
   GuardOutcome,
+  ModelUsageSummary,
   TraceDetail,
   TraceItem,
   TraceSummary,
@@ -42,6 +43,7 @@ interface ActivityEventDto {
   durationMs: number | null;
   identity: string | null;
   metadata: EventMetadataDto | null;
+  usage: ModelUsageSummary | null;
   tombstone?: boolean;
 }
 
@@ -106,6 +108,7 @@ function toActivityEvent(dto: ActivityEventDto): ActivityTimelineItem {
           name: metadata.name,
           status: metadata.status,
         },
+        usage: dto.usage ?? null,
       };
   }
 }

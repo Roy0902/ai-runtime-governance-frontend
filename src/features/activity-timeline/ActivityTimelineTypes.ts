@@ -47,6 +47,21 @@ export interface ObservedMetadata {
   status: ExecutionStatus | null;
 }
 
+export interface ModelUsageSummary {
+  usageId: string;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cachedInputTokens: number | null;
+  reasoningOutputTokens: number | null;
+  totalTokens: number | null;
+  totalCostUsd: number | null;
+  currency: string;
+  durationMs: number | null;
+  finishReasons: string[];
+  toolCallNames: string[];
+  langfuseObservationId: string | null;
+}
+
 interface ActivityEventBase {
   eventId: string;
   traceId: string;
@@ -65,6 +80,7 @@ export type ActivityEvent =
   | (ActivityEventBase & {
       kind: 'agent' | 'model' | 'tool';
       metadata: ObservedMetadata;
+      usage: ModelUsageSummary | null;
     });
 
 export interface EventTombstone {

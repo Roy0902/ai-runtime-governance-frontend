@@ -80,6 +80,7 @@ const primaryEvents: ActivityEvent[] = [
     durationMs: null,
     identity: 'Local agent session',
     metadata: { name: 'Agent turn', status: 'completed' },
+    usage: null,
   },
   {
     eventId: 'a0000002-0000-4000-8000-000000000002',
@@ -151,6 +152,20 @@ const primaryEvents: ActivityEvent[] = [
     durationMs: 860,
     identity: 'Model gateway',
     metadata: { name: 'Model response', status: 'completed' },
+    usage: {
+      usageId: 'b0000001-0000-4000-8000-000000000001',
+      inputTokens: 1200,
+      outputTokens: 340,
+      cachedInputTokens: 0,
+      reasoningOutputTokens: 0,
+      totalTokens: 1540,
+      totalCostUsd: 0.018,
+      currency: 'USD',
+      durationMs: 820,
+      finishReasons: ['stop'],
+      toolCallNames: [],
+      langfuseObservationId: null,
+    },
   },
   {
     eventId: 'a0000007-0000-4000-8000-000000000007',
@@ -163,6 +178,7 @@ const primaryEvents: ActivityEvent[] = [
     durationMs: null,
     identity: 'Tool reporter',
     metadata: { name: 'Tool activity not reported', status: 'unknown' },
+    usage: null,
   },
 ];
 
@@ -210,6 +226,7 @@ const runningEvents: ActivityEvent[] = [
     durationMs: null,
     identity: null,
     metadata: { name: null, status: 'running' },
+    usage: null,
   },
 ];
 
@@ -225,6 +242,7 @@ const unsupportedEvents: ActivityEvent[] = [
     durationMs: null,
     identity: null,
     metadata: { name: 'Unlinked tool activity', status: 'unknown' },
+    usage: null,
   },
 ];
 

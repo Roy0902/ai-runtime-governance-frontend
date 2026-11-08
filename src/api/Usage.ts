@@ -1,6 +1,7 @@
 export interface ModelUsage {
   id: string;
   traceId: string;
+  eventId: string | null;
   credentialId: string | null;
   clientConversationId: string | null;
   clientUserAgent: string | null;

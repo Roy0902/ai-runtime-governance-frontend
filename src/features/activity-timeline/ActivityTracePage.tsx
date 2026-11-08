@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge, Box, Button, Container, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
+import { useAuthentication } from '../../AuthenticationContext';
+import type { ObservationContent } from '../../api/Usage';
 import type { EventNode } from './ActivityTimelineModel';
 import {
   formatTime,
@@ -11,7 +14,7 @@ import {
   StatusBadge,
   TraceSummaryPanel,
 } from './ActivityTimelinePresentation';
-import type { ActivityEvent } from './ActivityTimelineTypes';
+import type { ActivityEvent, ModelUsageSummary } from './ActivityTimelineTypes';
 import { TraceUsagePanel } from './TraceUsagePanel';
 import { useTraceDetail } from './useActivityTimeline';
 
@@ -72,6 +75,105 @@ function eventMetadata(event: ActivityEvent): string[] {
   }
 }
 
+function tokens(value: number | null): string {
+  return value === null ? 'Not reported' : value.toLocaleString();
+}
+
+function money(value: number | null, currency: string): string {
+  if (value === null) {
+    return 'Not priced';
+  }
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: currency || 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  }).format(value);
+}
+
+function ModelStepUsage({ traceId, usage }: { traceId: string; usage: ModelUsageSummary }) {
+  const { send } = useAuthentication();
+  const [open, setOpen] = useState(false);
+  const [content, setContent] = useState<ObservationContent | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const observationId = usage.langfuseObservationId;
+
+  function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (!observationId || content || loading) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    send<ObservationContent>(`/api/v1/usage/traces/${traceId}/observations/${observationId}`, 'GET')
+      .then((value) => setContent(value))
+      .catch(() => setError('The model output could not be loaded from Langfuse.'))
+      .finally(() => setLoading(false));
+  }
+
+  return (
+    <Stack gap="2" gridColumn={{ md: '1 / -1' }}>
+      <Text color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">Model call</Text>
+      <Grid templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' }} gap="3">
+        {[
+          ['Input tokens', tokens(usage.inputTokens)],
+          ['Output tokens', tokens(usage.outputTokens)],
+          ['Total tokens', tokens(usage.totalTokens)],
+          ['Cost', money(usage.totalCostUsd, usage.currency)],
+        ].map(([label, value]) => (
+          <Box key={label}>
+            <Text color="governance.muted" fontSize="xs">{label}</Text>
+            <Text mt="1" fontSize="sm" fontWeight="medium">{value}</Text>
+          </Box>
+        ))}
+      </Grid>
+      {usage.finishReasons.length ? (
+        <Text fontSize="sm" color="governance.muted">
+          Finish: {usage.finishReasons.join(', ')}
+        </Text>
+      ) : null}
+      {usage.toolCallNames.length ? (
+        <Text fontSize="sm" color="governance.muted">
+          Tools requested: {usage.toolCallNames.join(', ')}
+        </Text>
+      ) : null}
+      {observationId ? (
+        <Button size="sm" variant="ghost" alignSelf="flex-start" aria-expanded={open} onClick={toggle}>
+          {open ? 'Hide output' : 'View output'}
+        </Button>
+      ) : (
+        <Text fontSize="sm" color="governance.muted">Output was not exported to Langfuse.</Text>
+      )}
+      {open && loading ? <Text role="status" color="governance.muted">Loading output…</Text> : null}
+      {open && error ? <Text role="alert" color="red.700">{error}</Text> : null}
+      {open && content ? (
+        <Box
+          as="pre"
+          m="0"
+          p="3"
+          bg="white"
+          borderWidth="1px"
+          borderColor="governance.line"
+          borderRadius="md"
+          fontFamily="mono"
+          fontSize="sm"
+          whiteSpace="pre-wrap"
+          wordBreak="break-word"
+          maxH="80"
+          overflowY="auto"
+        >
+          {content.output ?? 'No output was captured.'}
+        </Box>
+      ) : null}
+    </Stack>
+  );
+}
+
 function EventCard({
   node,
   expanded,
@@ -103,6 +205,11 @@ function EventCard({
               <Box>
                 <Heading as="h3" fontFamily="heading" fontSize="md">{eventHeading(event)}</Heading>
                 <Text mt="1" color="governance.muted" fontSize="xs">{formatTime(event.receivedAt)}</Text>
+                {event.kind === 'model' && event.usage ? (
+                  <Text mt="1" color="governance.muted" fontSize="xs">
+                    {tokens(event.usage.totalTokens)} tokens · {money(event.usage.totalCostUsd, event.usage.currency)}
+                  </Text>
+                ) : null}
               </Box>
             </HStack>
             <StatusBadge value={eventState(event)} />
@@ -141,6 +248,14 @@ function EventCard({
               {eventMetadata(event).map((value) => (
                 <Text key={value} gridColumn={{ md: '1 / -1' }} fontSize="sm">{value}</Text>
               ))}
+              {event.kind === 'model' && event.usage ? (
+                <ModelStepUsage traceId={event.traceId} usage={event.usage} />
+              ) : null}
+              {event.kind === 'tool' ? (
+                <Text gridColumn={{ md: '1 / -1' }} fontSize="sm" color="governance.muted">
+                  Tool arguments and results are not reported by the hook contract.
+                </Text>
+              ) : null}
             </Grid>
           ) : null}
         </Box>
