@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Badge, Box, Flex, Heading, Table, Text } from '@chakra-ui/react';
+import { Fragment, useEffect, useState } from 'react';
+import { Badge, Box, Button, Flex, Heading, Stack, Table, Text } from '@chakra-ui/react';
 import { useAuthentication } from '../../AuthenticationContext';
-import type { ModelUsage } from '../../api/Usage';
+import type { ModelUsage, ObservationContent } from '../../api/Usage';
 import { StatusBadge } from './ActivityTimelinePresentation';
 
 function tokens(value: number | null): string {
@@ -36,6 +36,10 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
   const [usage, setUsage] = useState<ModelUsage[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openObservation, setOpenObservation] = useState<string | null>(null);
+  const [contents, setContents] = useState<Record<string, ObservationContent>>({});
+  const [loadingObservation, setLoadingObservation] = useState<string | null>(null);
+  const [contentErrors, setContentErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let active = true;
@@ -61,6 +65,43 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
       active = false;
     };
   }, [send, traceId]);
+
+  function toggleOutput(row: ModelUsage) {
+    const observationId = row.langfuseObservationId;
+    if (!observationId) {
+      return;
+    }
+    if (openObservation === observationId) {
+      setOpenObservation(null);
+      return;
+    }
+    setOpenObservation(observationId);
+    if (contents[observationId] || loadingObservation === observationId) {
+      return;
+    }
+    setLoadingObservation(observationId);
+    setContentErrors((current) => {
+      const next = { ...current };
+      delete next[observationId];
+      return next;
+    });
+    send<ObservationContent>(
+      `/api/v1/usage/traces/${traceId}/observations/${observationId}`,
+      'GET',
+    )
+      .then((value) => {
+        setContents((current) => ({ ...current, [observationId]: value }));
+      })
+      .catch(() => {
+        setContentErrors((current) => ({
+          ...current,
+          [observationId]: 'The model output could not be loaded from Langfuse.',
+        }));
+      })
+      .finally(() => {
+        setLoadingObservation((current) => (current === observationId ? null : current));
+      });
+  }
 
   return (
     <Box as="section" aria-labelledby="usage-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
@@ -94,46 +135,104 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
                 <Table.ColumnHeader>Latency</Table.ColumnHeader>
                 <Table.ColumnHeader>First byte</Table.ColumnHeader>
                 <Table.ColumnHeader>Outcome</Table.ColumnHeader>
+                <Table.ColumnHeader>Content</Table.ColumnHeader>
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {usage.map((row) => (
-                <Table.Row key={row.id}>
-                  <Table.Cell fontWeight="semibold">
-                    <Text>{modelLabel(row)}</Text>
-                    <Text mt="1" color="governance.muted" fontSize="xs">
-                      {row.stream ? 'stream' : 'non-stream'} · {row.provider ?? 'provider not reported'}
-                    </Text>
-                    {row.finishReasons.length ? (
-                      <Text color="governance.muted" fontSize="xs">finish: {row.finishReasons.join(', ')}</Text>
+              {usage.map((row) => {
+                const observationId = row.langfuseObservationId;
+                return (
+                  <Fragment key={row.id}>
+                    <Table.Row>
+                      <Table.Cell fontWeight="semibold">
+                        <Text>{modelLabel(row)}</Text>
+                        <Text mt="1" color="governance.muted" fontSize="xs">
+                          {row.stream ? 'stream' : 'non-stream'} · {row.provider ?? 'provider not reported'}
+                        </Text>
+                        {row.finishReasons.length ? (
+                          <Text color="governance.muted" fontSize="xs">finish: {row.finishReasons.join(', ')}</Text>
+                        ) : null}
+                        {row.toolCallNames.length ? (
+                          <Text color="governance.muted" fontSize="xs">tools: {row.toolCallNames.join(', ')}</Text>
+                        ) : null}
+                        {row.errorCode || row.errorType ? (
+                          <Text color="red.700" fontSize="xs">
+                            {[row.errorType, row.errorCode].filter(Boolean).join(': ')}
+                          </Text>
+                        ) : null}
+                      </Table.Cell>
+                      <Table.Cell>{tokens(row.inputTokens)}</Table.Cell>
+                      <Table.Cell>{tokens(row.outputTokens)}</Table.Cell>
+                      <Table.Cell>{tokens(row.cachedInputTokens)}</Table.Cell>
+                      <Table.Cell>{tokens(row.reasoningOutputTokens)}</Table.Cell>
+                      <Table.Cell>{tokens(row.totalTokens)}</Table.Cell>
+                      <Table.Cell>
+                        <span>{money(row.totalCostUsd, row.currency)}</span>
+                        {row.providerReportedCostUsd !== null ? (
+                          <Text color="governance.muted" fontSize="xs">
+                            provider: {money(row.providerReportedCostUsd, row.currency)}
+                          </Text>
+                        ) : null}
+                      </Table.Cell>
+                      <Table.Cell>{duration(row.durationMs)}</Table.Cell>
+                      <Table.Cell>{duration(row.timeToFirstByteMs)}</Table.Cell>
+                      <Table.Cell><StatusBadge value={row.outcome} /></Table.Cell>
+                      <Table.Cell>
+                        {observationId ? (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            aria-expanded={openObservation === observationId}
+                            onClick={() => toggleOutput(row)}
+                          >
+                            {openObservation === observationId ? 'Hide output' : 'View output'}
+                          </Button>
+                        ) : (
+                          <Text color="governance.muted" fontSize="xs">Not exported</Text>
+                        )}
+                      </Table.Cell>
+                    </Table.Row>
+                    {openObservation === observationId && observationId ? (
+                      <Table.Row>
+                        <Table.Cell colSpan={11} bg="governance.canvas">
+                          {loadingObservation === observationId ? (
+                            <Text role="status" color="governance.muted">Loading output…</Text>
+                          ) : null}
+                          {contentErrors[observationId] ? (
+                            <Text role="alert" color="red.700">
+                              {contentErrors[observationId]}
+                            </Text>
+                          ) : null}
+                          {contents[observationId] ? (
+                            <Stack gap="2">
+                              <Text color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+                                Generated output · Langfuse
+                              </Text>
+                              <Box
+                                as="pre"
+                                m="0"
+                                p="3"
+                                bg="white"
+                                borderWidth="1px"
+                                borderColor="governance.line"
+                                borderRadius="md"
+                                fontFamily="mono"
+                                fontSize="sm"
+                                whiteSpace="pre-wrap"
+                                wordBreak="break-word"
+                                maxH="80"
+                                overflowY="auto"
+                              >
+                                {contents[observationId].output ?? 'No output was captured.'}
+                              </Box>
+                            </Stack>
+                          ) : null}
+                        </Table.Cell>
+                      </Table.Row>
                     ) : null}
-                    {row.toolCallNames.length ? (
-                      <Text color="governance.muted" fontSize="xs">tools: {row.toolCallNames.join(', ')}</Text>
-                    ) : null}
-                    {row.errorCode || row.errorType ? (
-                      <Text color="red.700" fontSize="xs">
-                        {[row.errorType, row.errorCode].filter(Boolean).join(': ')}
-                      </Text>
-                    ) : null}
-                  </Table.Cell>
-                  <Table.Cell>{tokens(row.inputTokens)}</Table.Cell>
-                  <Table.Cell>{tokens(row.outputTokens)}</Table.Cell>
-                  <Table.Cell>{tokens(row.cachedInputTokens)}</Table.Cell>
-                  <Table.Cell>{tokens(row.reasoningOutputTokens)}</Table.Cell>
-                  <Table.Cell>{tokens(row.totalTokens)}</Table.Cell>
-                  <Table.Cell>
-                    <span>{money(row.totalCostUsd, row.currency)}</span>
-                    {row.providerReportedCostUsd !== null ? (
-                      <Text color="governance.muted" fontSize="xs">
-                        provider: {money(row.providerReportedCostUsd, row.currency)}
-                      </Text>
-                    ) : null}
-                  </Table.Cell>
-                  <Table.Cell>{duration(row.durationMs)}</Table.Cell>
-                  <Table.Cell>{duration(row.timeToFirstByteMs)}</Table.Cell>
-                  <Table.Cell><StatusBadge value={row.outcome} /></Table.Cell>
-                </Table.Row>
-              ))}
+                  </Fragment>
+                );
+              })}
             </Table.Body>
           </Table.Root>
         </Table.ScrollArea>
