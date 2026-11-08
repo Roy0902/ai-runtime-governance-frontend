@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, Button, Checkbox, Code, Container, Field, Grid, Heading, HStack, Image, Input, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
+import { Box, Button, Checkbox, Code, Container, Field, Grid, Heading, HStack, Input, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
+import { QRCodeSVG } from 'qrcode.react';
 import { ApiError } from '../../ApplicationApiClient';
 import type { AuthenticatorSecrets } from '../../api/AuthenticatorSecrets';
 import type { AuthenticationContext } from '../../api/AuthenticationContext';
@@ -427,12 +428,19 @@ function useEnrollmentSecrets(
 }
 
 function SecretDisplay({ secrets }: { secrets: AuthenticatorSecrets }) {
-  const qr = `data:image/svg+xml,${encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><rect width="180" height="180" fill="#fff"/><rect x="20" y="20" width="140" height="140" fill="none" stroke="#111" stroke-width="8"/></svg>',
-  )}`;
   return (
     <Stack gap="4">
-      <Image src={qr} alt="Authenticator QR code" width="180px" height="180px" borderWidth="1px" borderColor="governance.line" borderRadius="lg" />
+      <Box p="3" bg="white" borderWidth="1px" borderColor="governance.line" borderRadius="lg" width="fit-content">
+        <QRCodeSVG
+          value={secrets.provisioningUri}
+          size={180}
+          level="M"
+          marginSize={2}
+          bgColor="#FFFFFF"
+          fgColor="#111111"
+          title="Authenticator QR code"
+        />
+      </Box>
       <Box>
         <Text mb="1" color="governance.muted" fontSize="xs">Manual key</Text>
         <Code display="block" p="3" borderRadius="md" fontSize="sm" overflowWrap="anywhere">{secrets.manualKey}</Code>
