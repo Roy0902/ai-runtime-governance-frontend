@@ -1,6 +1,7 @@
 import { Box, Button, Drawer, Flex, HStack, IconButton, Link, Portal, Stack, Text } from '@chakra-ui/react';
 import { Activity, CircleUserRound, LogIn, LogOut, Menu, UserRound, X } from 'lucide-react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { t } from '../../i18n';
 
 type HeaderVariant = 'authenticated' | 'public' | 'error';
 
@@ -18,13 +19,13 @@ export function ApplicationHeader({
   const { pathname } = useLocation();
   const links = variant === 'authenticated' || variant === 'error'
     ? [
-        { label: 'Activity', to: '/activity', icon: Activity },
-        { label: 'Account', to: '/account', icon: UserRound },
-        ...(variant === 'error' ? [{ label: 'Sign in', to: '/sign-in', icon: LogIn }] : []),
+        { label: t('common.activity'), to: '/activity', icon: Activity },
+        { label: t('common.account'), to: '/account', icon: UserRound },
+        ...(variant === 'error' ? [{ label: t('common.signIn'), to: '/sign-in', icon: LogIn }] : []),
       ]
     : [
-        { label: 'Sign in', to: '/sign-in', icon: LogIn },
-        { label: 'Create account', to: '/register', icon: CircleUserRound },
+        { label: t('common.signIn'), to: '/sign-in', icon: LogIn },
+        { label: t('common.createAccount'), to: '/register', icon: CircleUserRound },
       ];
 
   return (
@@ -41,7 +42,7 @@ export function ApplicationHeader({
           gap="3"
         >
           <Drawer.Trigger asChild>
-            <IconButton aria-label="Open sidebar" size="sm" variant="ghost" colorPalette="green" flexShrink="0">
+            <IconButton aria-label={t('common.openSidebar')} size="sm" variant="ghost" colorPalette="green" flexShrink="0">
               <Menu size={20} aria-hidden="true" />
             </IconButton>
           </Drawer.Trigger>
@@ -65,10 +66,10 @@ export function ApplicationHeader({
                 </Flex>
                 <Box>
                   <Text fontFamily="heading" fontSize="sm" fontWeight="700" lineHeight="short">
-                    AI Runtime Governance
+                    {t('common.appName')}
                   </Text>
                   <Text display={{ base: 'none', sm: 'block' }} mt="1" color="governance.muted" fontSize="xs">
-                    Runtime activity
+                    {t('common.appTagline')}
                   </Text>
                 </Box>
               </HStack>
@@ -81,9 +82,9 @@ export function ApplicationHeader({
         <Drawer.Positioner>
           <Drawer.Content maxW="min(20rem, 100vw)" bg="governance.surface" color="governance.ink">
             <Drawer.Header borderBottomWidth="1px" borderColor="governance.line" pr="14">
-              <Drawer.Title fontFamily="heading" fontSize="lg">Navigation</Drawer.Title>
+              <Drawer.Title fontFamily="heading" fontSize="lg">{t('common.navigation')}</Drawer.Title>
               <Drawer.CloseTrigger asChild>
-                <IconButton position="absolute" top="3" right="3" aria-label="Close sidebar" size="sm" variant="ghost">
+                <IconButton position="absolute" top="3" right="3" aria-label={t('common.closeSidebar')} size="sm" variant="ghost">
                   <X size={20} aria-hidden="true" />
                 </IconButton>
               </Drawer.CloseTrigger>
@@ -91,7 +92,7 @@ export function ApplicationHeader({
             <Drawer.Body py="5">
               <Drawer.Context>
                 {(drawer) => (
-                  <Stack as="nav" aria-label="Main navigation" gap="2">
+                  <Stack as="nav" aria-label={t('common.mainNavigation')} gap="2">
                     {links.map(({ label, to, icon: Icon }) => {
                       const active = pathname === to || (to !== '/' && pathname.startsWith(`${to}/`));
                       return (
@@ -124,7 +125,7 @@ export function ApplicationHeader({
                   ) : null}
                   <Button size="sm" variant="outline" onClick={onSignOut} disabled={pending}>
                     <LogOut size={16} aria-hidden="true" />
-                    {pending ? 'Signing out…' : 'Sign out'}
+                    {pending ? t('common.signingOut') : t('common.signOut')}
                   </Button>
                 </Stack>
               </Drawer.Footer>

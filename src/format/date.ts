@@ -1,17 +1,5 @@
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+import { t } from '../i18n';
+import { shortMonths } from '../locales/en';
 
 export type DateZone = 'utc' | 'local';
 
@@ -49,7 +37,7 @@ function parts(date: Date, zone: DateZone) {
 
 export function formatDate(
   value: string | null,
-  fallback = 'Not reported',
+  fallback = t('common.notReported'),
   zone: DateZone = 'utc',
 ): string {
   if (value === null) {
@@ -60,12 +48,12 @@ export function formatDate(
     return value;
   }
   const { day, month, year } = parts(date, zone);
-  return `${two(day)}-${MONTHS[month]}-${year}`;
+  return `${two(day)}-${shortMonths[month]}-${year}`;
 }
 
 export function formatDateTime(
   value: string | null,
-  fallback = 'Not reported',
+  fallback = t('common.notReported'),
   zone: DateZone = 'utc',
   includeSeconds = true,
 ): string {
@@ -80,5 +68,5 @@ export function formatDateTime(
   const time = includeSeconds
     ? `${two(hours)}:${two(minutes)}:${two(seconds)}`
     : `${two(hours)}:${two(minutes)}`;
-  return `${formatDate(value, fallback, zone)} ${time}${zone === 'utc' ? ' UTC' : ''}`;
+  return `${formatDate(value, fallback, zone)} ${time}${zone === 'utc' ? t('common.utcSuffix') : ''}`;
 }

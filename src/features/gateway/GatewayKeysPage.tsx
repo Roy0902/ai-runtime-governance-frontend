@@ -6,6 +6,7 @@ import { useAuthentication } from '../../AuthenticationContext';
 import type { GatewayKeySummary, GatewaySetup } from '../../api/GatewayKeys';
 import type { UsageSummary } from '../../api/Usage';
 import { formatDateTime } from '../../format/date';
+import { t } from '../../i18n';
 import { StepUpDialog } from '../authentication/StepUpDialog';
 
 type PendingAction =
@@ -18,11 +19,11 @@ function errorText(error: unknown): string {
       return error.fieldErrors[0].message;
     }
     if (error.code === 'RATE_LIMITED' && error.retryAfterSeconds) {
-      return `Too many attempts. Try again in ${error.retryAfterSeconds} seconds.`;
+      return t('common.tooManyAttempts', { seconds: error.retryAfterSeconds });
     }
     return error.message;
   }
-  return 'Something went wrong. Try again.';
+  return t('common.somethingWentWrong');
 }
 
 function formatTokens(value: number): string {
@@ -31,7 +32,7 @@ function formatTokens(value: number): string {
 
 function formatCost(value: number | null, currency: string): string {
   if (value === null) {
-    return 'Not priced';
+    return t('activity.notPriced');
   }
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
@@ -42,7 +43,7 @@ function formatCost(value: number | null, currency: string): string {
 }
 
 function formatDate(value: string | null): string {
-  return formatDateTime(value, 'Never', 'local', false);
+  return formatDateTime(value, t('gateway.never'), 'local', false);
 }
 
 export function GatewayKeysPage() {
@@ -109,14 +110,14 @@ export function GatewayKeysPage() {
         name: keyName,
       });
       setCreated(value);
-      setStatus('Gateway key created. Copy it now; it is not shown again.');
+      setStatus(t('gateway.created'));
       await load();
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'RECENT_AUTH_REQUIRED') {
         setPending({ kind: 'create', name: keyName });
         setStepUp(true);
       } else if (caught instanceof ApiError && caught.code === 'GATEWAY_NOT_ENTITLED') {
-        setError('Gateway access is not granted for this account. Ask the host operator to grant it.');
+        setError(t('gateway.notEntitledError'));
       } else {
         setError(errorText(caught));
       }
@@ -131,7 +132,7 @@ export function GatewayKeysPage() {
     try {
       await send(`/api/v1/account/gateway-keys/${id}`, 'DELETE');
       setPendingRevoke(null);
-      setStatus(`Revoked ${keyName}. Agents using it will be rejected.`);
+      setStatus(t('gateway.revokedStatus', { name: keyName }));
       await load();
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'RECENT_AUTH_REQUIRED') {
@@ -147,9 +148,9 @@ export function GatewayKeysPage() {
     setCopyStatus('');
     try {
       await navigator.clipboard.writeText(value);
-      setCopyStatus(`${label} copied.`);
+      setCopyStatus(t('gateway.copied', { label }));
     } catch {
-      setCopyStatus('Copy failed. Select the text and copy it manually.');
+      setCopyStatus(t('gateway.copyFailed'));
     }
   }
 
@@ -157,40 +158,38 @@ export function GatewayKeysPage() {
     <Stack gap="6">
       <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap">
         <div>
-          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Access</Text>
-          <Heading as="h1" fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Gateway keys</Heading>
+          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">{t('gateway.accessEyebrow')}</Text>
+          <Heading as="h1" fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>{t('gateway.title')}</Heading>
           <Text mt="2" maxW="52rem" color="governance.muted">
-            Create a key for an agent, point the agent at the gateway base URL, and route model
-            traffic through the guarded endpoint. The upstream provider key stays on the server.
+            {t('gateway.description')}
           </Text>
         </div>
         <Button variant="outline" type="button" onClick={() => { void load(); }} disabled={loading}>
-          <RefreshCw size={16} aria-hidden="true" /> Refresh
+          <RefreshCw size={16} aria-hidden="true" /> {t('gateway.refresh')}
         </Button>
       </Flex>
 
       {!entitled ? (
         <Text role="status" mb="5" p="4" borderRadius="lg" bg="orange.50" color="orange.900" fontSize="sm">
-          Gateway access is not granted for this account. You can view and revoke existing keys,
-          but a host operator must grant gateway permission before new keys can be created.
+          {t('gateway.notEntitled')}
         </Text>
       ) : null}
 
       <Box as="section" aria-labelledby="usage-summary-heading" mb="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
-        <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Last 30 days</Text>
-        <Heading id="usage-summary-heading" mb="4" fontFamily="heading" fontSize="xl">Usage</Heading>
+        <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">{t('gateway.last30Days')}</Text>
+        <Heading id="usage-summary-heading" mb="4" fontFamily="heading" fontSize="xl">{t('gateway.usage')}</Heading>
         {usageError ? (
-          <Text role="status" color="governance.muted" fontSize="sm">Usage summary is unavailable.</Text>
+          <Text role="status" color="governance.muted" fontSize="sm">{t('gateway.usageUnavailable')}</Text>
         ) : null}
         {usageSummary ? (
           <>
             <Grid templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }} gap="3">
               {[
-                ['Calls', formatTokens(usageSummary.calls)],
-                ['Input tokens', formatTokens(usageSummary.inputTokens)],
-                ['Output tokens', formatTokens(usageSummary.outputTokens)],
-                ['Total tokens', formatTokens(usageSummary.totalTokens)],
-                ['Estimated cost', formatCost(usageSummary.totalCostUsd, usageSummary.currency)],
+                [t('gateway.calls'), formatTokens(usageSummary.calls)],
+                [t('gateway.inputTokens'), formatTokens(usageSummary.inputTokens)],
+                [t('gateway.outputTokens'), formatTokens(usageSummary.outputTokens)],
+                [t('gateway.totalTokens'), formatTokens(usageSummary.totalTokens)],
+                [t('gateway.estimatedCost'), formatCost(usageSummary.totalCostUsd, usageSummary.currency)],
               ].map(([label, value]) => (
                 <Box key={label} p="3" borderRadius="lg" bg="governance.canvas">
                   <Text color="governance.muted" fontSize="xs">{label}</Text>
@@ -199,15 +198,15 @@ export function GatewayKeysPage() {
               ))}
             </Grid>
             <Text mt="3" color="governance.muted" fontSize="xs">
-              Cost is shown only when the deployment has a price configured for the model.
+              {t('gateway.costNote')}
             </Text>
           </>
         ) : null}
       </Box>
 
       <Box as="section" aria-labelledby="create-key-heading" mb="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
-        <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">New key</Text>
-        <Heading id="create-key-heading" mb="4" fontFamily="heading" fontSize="xl">Create a gateway key</Heading>
+        <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">{t('gateway.newKeyEyebrow')}</Text>
+        <Heading id="create-key-heading" mb="4" fontFamily="heading" fontSize="xl">{t('gateway.createTitle')}</Heading>
         <Box
           as="form"
           display="flex"
@@ -223,22 +222,21 @@ export function GatewayKeysPage() {
           }}
         >
           <Field.Root flex="1 1 16rem">
-            <Field.Label>Key name</Field.Label>
+            <Field.Label>{t('gateway.keyName')}</Field.Label>
             <Input
-              aria-label="Key name"
+              aria-label={t('gateway.keyName')}
               value={name}
               maxLength={64}
               onChange={(event) => setName(event.target.value)}
-              placeholder="laptop"
+              placeholder={t('gateway.keyNamePlaceholder')}
             />
           </Field.Root>
           <Button type="submit" disabled={!entitled || creating} colorPalette="green">
-            {creating ? 'Creating…' : 'Create key'}
+            {creating ? t('gateway.creating') : t('gateway.createKey')}
           </Button>
         </Box>
         <Text mt="3" color="governance.muted" fontSize="xs">
-          Use 1–64 letters, digits, spaces, dots, underscores or hyphens. Up to five active keys
-          are allowed per account.
+          {t('gateway.keyNameHint')}
         </Text>
       </Box>
 
@@ -250,25 +248,25 @@ export function GatewayKeysPage() {
         <Box as="section" aria-labelledby="new-key-heading" mb="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="green.300" borderRadius="xl" bg="white">
           <Flex justify="space-between" align="center" gap="4" wrap="wrap">
             <Box>
-              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Shown once</Text>
-              <Heading id="new-key-heading" fontFamily="heading" fontSize="xl">New key: {created.name}</Heading>
+              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">{t('gateway.shownOnce')}</Text>
+              <Heading id="new-key-heading" fontFamily="heading" fontSize="xl">{t('gateway.newKeyTitle', { name: created.name })}</Heading>
             </Box>
-            <Button size="sm" variant="outline" onClick={() => setCreated(null)}><X size={16} aria-hidden="true" /> Hide</Button>
+            <Button size="sm" variant="outline" onClick={() => setCreated(null)}><X size={16} aria-hidden="true" /> {t('gateway.hide')}</Button>
           </Flex>
           <Text role="alert" mt="4" p="3" borderRadius="md" bg="orange.50" color="orange.900" fontSize="sm">
-            This token is shown once. Copy it now; it cannot be retrieved later.
+            {t('gateway.tokenWarning')}
           </Text>
 
           <HStack mt="4" align="stretch" gap="2" flexWrap="wrap">
-            <Code aria-label="Gateway key" flex="1 1 20rem" p="3" borderRadius="md" fontSize="sm" overflowWrap="anywhere">{created.token}</Code>
-            <Button onClick={() => { void copy(created.token, 'Gateway key'); }}><Copy size={16} aria-hidden="true" /> Copy key</Button>
+            <Code aria-label={t('gateway.gatewayKeyAria')} flex="1 1 20rem" p="3" borderRadius="md" fontSize="sm" overflowWrap="anywhere">{created.token}</Code>
+            <Button onClick={() => { void copy(created.token, t('gateway.gatewayKeyAria')); }}><Copy size={16} aria-hidden="true" /> {t('gateway.copyKey')}</Button>
           </HStack>
 
           <Grid mt="5" templateColumns={{ base: '1fr', md: 'repeat(3, minmax(0, 1fr))' }} gap="3">
             {[
-              ['Base URL', created.baseUrl],
-              ['Chat endpoint', `${created.baseUrl}${created.chatCompletionsPath}`],
-              ['Models', created.models.length > 0 ? created.models.join(', ') : 'No models configured'],
+              [t('gateway.baseUrl'), created.baseUrl],
+              [t('gateway.chatEndpoint'), `${created.baseUrl}${created.chatCompletionsPath}`],
+              [t('gateway.models'), created.models.length > 0 ? created.models.join(', ') : t('gateway.noModels')],
             ].map(([label, value]) => (
               <Box key={label} minW="0" p="3" borderRadius="md" bg="governance.canvas">
                 <Text color="governance.muted" fontSize="xs">{label}</Text>
@@ -277,36 +275,36 @@ export function GatewayKeysPage() {
             ))}
           </Grid>
 
-          <Heading as="h3" mt="6" mb="2" fontFamily="heading" fontSize="md">OpenCode</Heading>
+          <Heading as="h3" mt="6" mb="2" fontFamily="heading" fontSize="md">{t('gateway.openCode')}</Heading>
           <Box as="pre" maxH="20rem" overflow="auto" p="4" borderRadius="lg" bg="governance.ink" color="white" fontFamily="mono" fontSize="xs" whiteSpace="pre-wrap" overflowWrap="anywhere">{created.openCodeConfig}</Box>
-          <Button mt="2" variant="outline" onClick={() => { void copy(created.openCodeConfig, 'OpenCode config'); }}><Copy size={16} aria-hidden="true" /> Copy OpenCode config</Button>
+          <Button mt="2" variant="outline" onClick={() => { void copy(created.openCodeConfig, t('gateway.copyOpenCode')); }}><Copy size={16} aria-hidden="true" /> {t('gateway.copyOpenCode')}</Button>
 
-          <Heading as="h3" mt="6" mb="2" fontFamily="heading" fontSize="md">VS Code Copilot BYOK</Heading>
+          <Heading as="h3" mt="6" mb="2" fontFamily="heading" fontSize="md">{t('gateway.vsCode')}</Heading>
           <Box as="pre" maxH="20rem" overflow="auto" p="4" borderRadius="lg" bg="governance.ink" color="white" fontFamily="mono" fontSize="xs" whiteSpace="pre-wrap" overflowWrap="anywhere">{created.vsCodeConfig}</Box>
-          <Button mt="2" variant="outline" onClick={() => { void copy(created.vsCodeConfig, 'VS Code config'); }}><Copy size={16} aria-hidden="true" /> Copy VS Code config</Button>
+          <Button mt="2" variant="outline" onClick={() => { void copy(created.vsCodeConfig, t('gateway.copyVsCode')); }}><Copy size={16} aria-hidden="true" /> {t('gateway.copyVsCode')}</Button>
         </Box>
       ) : null}
 
       <Box as="section" aria-labelledby="keys-heading" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
         <Flex justify="space-between" align="center" gap="4" mb="4">
           <Box>
-            <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Existing keys</Text>
-            <Heading id="keys-heading" fontFamily="heading" fontSize="xl">Keys</Heading>
+            <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">{t('gateway.existingKeys')}</Text>
+            <Heading id="keys-heading" fontFamily="heading" fontSize="xl">{t('gateway.keys')}</Heading>
           </Box>
-          <Badge colorPalette="gray" variant="subtle">{keys?.length ?? 0} keys</Badge>
+          <Badge colorPalette="gray" variant="subtle">{(keys?.length ?? 0) === 1 ? t('gateway.keyCountOne', { count: keys?.length ?? 0 }) : t('gateway.keyCountOther', { count: keys?.length ?? 0 })}</Badge>
         </Flex>
 
-        {loading ? <Text role="status" color="governance.muted">Loading keys…</Text> : null}
+        {loading ? <Text role="status" color="governance.muted">{t('gateway.loadingKeys')}</Text> : null}
         {listError ? (
           <Flex role="alert" justify="space-between" align="center" gap="4" p="3" borderRadius="md" bg="red.50" color="red.800">
             <Text>{listError}</Text>
             <Button size="sm" variant="outline" onClick={() => { void load(); }}>
-              Try again
+              {t('common.tryAgain')}
             </Button>
           </Flex>
         ) : null}
         {!loading && !listError && keys && keys.length === 0 ? (
-          <Text role="status" py="8" color="governance.muted" textAlign="center">No gateway keys yet.</Text>
+          <Text role="status" py="8" color="governance.muted" textAlign="center">{t('gateway.noKeys')}</Text>
         ) : null}
 
         {keys && keys.length > 0 ? (
@@ -314,12 +312,12 @@ export function GatewayKeysPage() {
             <Table.Root native size="sm" interactive>
               <Table.Header>
                 <Table.Row>
-                  <Table.ColumnHeader>Name</Table.ColumnHeader>
-                  <Table.ColumnHeader>Prefix</Table.ColumnHeader>
-                  <Table.ColumnHeader>Created</Table.ColumnHeader>
-                  <Table.ColumnHeader>Last used</Table.ColumnHeader>
-                  <Table.ColumnHeader>Status</Table.ColumnHeader>
-                  <Table.ColumnHeader>Actions</Table.ColumnHeader>
+                  <Table.ColumnHeader>{t('gateway.name')}</Table.ColumnHeader>
+                  <Table.ColumnHeader>{t('gateway.prefix')}</Table.ColumnHeader>
+                  <Table.ColumnHeader>{t('gateway.createdAt')}</Table.ColumnHeader>
+                  <Table.ColumnHeader>{t('gateway.lastUsed')}</Table.ColumnHeader>
+                  <Table.ColumnHeader>{t('gateway.status')}</Table.ColumnHeader>
+                  <Table.ColumnHeader>{t('gateway.actions')}</Table.ColumnHeader>
                 </Table.Row>
               </Table.Header>
               <Table.Body>
@@ -329,22 +327,22 @@ export function GatewayKeysPage() {
                     <Table.Cell><Code>{key.tokenPrefix}…</Code></Table.Cell>
                     <Table.Cell>{formatDate(key.createdAt)}</Table.Cell>
                     <Table.Cell>{formatDate(key.lastUsedAt)}</Table.Cell>
-                    <Table.Cell><Badge colorPalette={key.revokedAt ? 'gray' : 'green'} variant="subtle">{key.revokedAt ? 'Revoked' : 'Active'}</Badge></Table.Cell>
+                    <Table.Cell><Badge colorPalette={key.revokedAt ? 'gray' : 'green'} variant="subtle">{key.revokedAt ? t('gateway.revoked') : t('gateway.active')}</Badge></Table.Cell>
                     <Table.Cell>
                       {key.revokedAt ? (
-                        <Text color="governance.muted" fontSize="xs">No actions</Text>
+                        <Text color="governance.muted" fontSize="xs">{t('gateway.noActions')}</Text>
                       ) : pendingRevoke?.id === key.id ? (
                         <HStack gap="2">
                           <Button size="xs" colorPalette="red" onClick={() => { void revoke(key.id, key.name); }}>
-                            Confirm revoke
+                            {t('gateway.confirmRevoke')}
                           </Button>
                           <Button size="xs" variant="outline" onClick={() => setPendingRevoke(null)}>
-                            Cancel
+                            {t('common.cancel')}
                           </Button>
                         </HStack>
                       ) : (
                         <Button size="xs" variant="outline" colorPalette="red" onClick={() => setPendingRevoke({ id: key.id, name: key.name })}>
-                          Revoke
+                          {t('gateway.revoke')}
                         </Button>
                       )}
                     </Table.Cell>

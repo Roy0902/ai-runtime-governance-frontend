@@ -4,6 +4,7 @@ import { AuthenticationProvider } from './AuthenticationContext';
 import { RequireHuman } from './components/layout/RequireHuman';
 import { PageLoading } from './components/ui/PageLoading';
 import { ActivityEmptyState, ActivityLayout } from './features/activity-timeline/ActivityLayout';
+import { t } from './i18n';
 
 const ActivityTracePage = lazy(() => import('./features/activity-timeline/ActivityTracePage')
   .then((module) => ({ default: module.ActivityTracePage })));
@@ -18,7 +19,7 @@ function AuthenticatedRoutes() {
           path="/activity"
           element={
             <RequireHuman>
-              <Suspense fallback={<PageLoading label="Loading activity" />}>
+              <Suspense fallback={<PageLoading label={t('loading.activity')} />}>
                 <ActivityLayout />
               </Suspense>
             </RequireHuman>
@@ -28,14 +29,14 @@ function AuthenticatedRoutes() {
           <Route
             path=":traceId"
             element={
-              <Suspense fallback={<PageLoading label="Loading trace" />}>
+              <Suspense fallback={<PageLoading label={t('loading.trace')} />}>
                 <ActivityTracePage />
               </Suspense>
             }
           />
         </Route>
         <Route path="/*" element={
-          <Suspense fallback={<PageLoading label="Loading account" />}>
+          <Suspense fallback={<PageLoading label={t('loading.account')} />}>
             <AuthenticationRoutes />
           </Suspense>
         } />

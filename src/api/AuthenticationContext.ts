@@ -6,4 +6,7 @@ export interface AuthenticationContext {
   setupExpiresAt?: string | null;
   enrollmentPurpose?: string | null;
   account?: Account | null;
+  provider?: 'native' | 'keycloak' | null;
+  roles?: string[];
+  googleLoginEnabled?: boolean;
 }

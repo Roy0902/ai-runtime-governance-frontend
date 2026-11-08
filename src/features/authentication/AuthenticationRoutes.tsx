@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, Button, Checkbox, Code, Container, Field, Grid, Heading, HStack, Image, Input, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
+import { Activity, Fingerprint, ShieldCheck } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import type { AuthenticatorSecrets } from '../../api/AuthenticatorSecrets';
 import type { AuthenticationContext } from '../../api/AuthenticationContext';
@@ -10,13 +11,16 @@ import { ApplicationErrorPage } from '../../components/ApplicationErrorPage';
 import { ApplicationHeader } from '../../components/layout/ApplicationHeader';
 import { RequireHuman } from '../../components/layout/RequireHuman';
 import { PageLoading } from '../../components/ui/PageLoading';
+import { t } from '../../i18n';
 import { SettingsLayout, SettingsPanel } from '../account/SettingsLayout';
 import { StepUpDialog } from './StepUpDialog';
 
 const GatewayKeysPage = lazy(() => import('../gateway/GatewayKeysPage')
   .then((module) => ({ default: module.GatewayKeysPage })));
 
-const ACCEPTED = "If this request is eligible, we'll send an email with the next steps.";
+const REGISTERED = t('auth.registered');
+const RESEND_SENT = t('auth.resendSent');
+const RESET_SENT = t('auth.resetSent');
 
 function errorText(error: unknown): string {
   if (error instanceof ApiError) {
@@ -24,11 +28,11 @@ function errorText(error: unknown): string {
       return error.fieldErrors[0].message;
     }
     if (error.code === 'RATE_LIMITED' && error.retryAfterSeconds) {
-      return `Too many attempts. Try again in ${error.retryAfterSeconds} seconds.`;
+      return t('common.tooManyAttempts', { seconds: error.retryAfterSeconds });
     }
     return error.message;
   }
-  return 'Something went wrong. Try again.';
+  return t('common.somethingWentWrong');
 }
 
 function Message({ text }: { text: string }) {
@@ -50,17 +54,17 @@ function Status({ text }: { text: string }) {
 function AuthenticationContextLoading() {
   const { loading, refreshError, refresh } = useAuthentication();
   if (loading) {
-    return <PageLoading label="Loading account context" />;
+    return <PageLoading label={t('loading.accountContext')} />;
   }
   return (
     <ApplicationErrorPage
       code="SESSION"
-      eyebrow="Session unavailable"
-      title="Unable to load your session"
-      description={refreshError ?? 'Your session could not be loaded. Try again.'}
+      eyebrow={t('errors.sessionUnavailableEyebrow')}
+      title={t('errors.sessionUnavailableTitle')}
+      description={refreshError ?? t('errors.sessionUnavailableDescription')}
     >
       <Button type="button" variant="outline" onClick={() => { void refresh().catch(() => {}); }}>
-        Retry
+        {t('errors.retry')}
       </Button>
     </ApplicationErrorPage>
   );
@@ -72,6 +76,66 @@ function AuthPage({ children }: { children: ReactNode }) {
       <Box p={{ base: '5', md: '8' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white" boxShadow="0 18px 52px rgba(23,43,52,0.08)">
         <Stack gap="4">{children}</Stack>
       </Box>
+    </Container>
+  );
+}
+
+function AuthBrand() {
+  return (
+    <HStack justify="center" gap="1.5" mt="4" color="governance.muted" fontSize="xs">
+      <ShieldCheck size={14} aria-hidden="true" />
+      <Text>{t('auth.brand')}</Text>
+    </HStack>
+  );
+}
+
+function AuthFrame({ children }: { children: ReactNode }) {
+  return (
+    <Container as="main" maxW="6xl" flex="1" px={{ base: '4', md: '8' }} py={{ base: '8', md: '14' }}>
+      <Grid templateColumns={{ base: '1fr', lg: '1.05fr 1fr' }} gap={{ base: '8', lg: '16' }} alignItems="center">
+        <Box display={{ base: 'none', lg: 'block' }} maxW="xl">
+          <Text mb="3" color="governance.primary" fontSize="xs" fontWeight="bold" letterSpacing="0.12em" textTransform="uppercase">
+            {t('auth.eyebrow')}
+          </Text>
+          <Heading fontFamily="heading" fontSize="4xl" lineHeight="1.08">
+            {t('auth.heroTitle')}
+          </Heading>
+          <Text mt="4" color="governance.muted" fontSize="lg" lineHeight="1.7">
+            {t('auth.heroDescription')}
+          </Text>
+          <Stack mt="8" gap="5">
+            <SignInFeature
+              icon={ShieldCheck}
+              title={t('auth.featureGuardedTitle')}
+              description={t('auth.featureGuardedDescription')}
+            />
+            <SignInFeature
+              icon={Activity}
+              title={t('auth.featureTimelineTitle')}
+              description={t('auth.featureTimelineDescription')}
+            />
+            <SignInFeature
+              icon={Fingerprint}
+              title={t('auth.featureSecurityTitle')}
+              description={t('auth.featureSecurityDescription')}
+            />
+          </Stack>
+        </Box>
+
+        <Box
+          w="full"
+          maxW={{ base: 'full', md: '28rem' }}
+          justifySelf={{ base: 'center', lg: 'end' }}
+          p={{ base: '6', md: '8' }}
+          borderWidth="1px"
+          borderColor="governance.line"
+          borderRadius="2xl"
+          bg="white"
+          boxShadow="0 24px 64px rgba(23,43,52,0.10)"
+        >
+          <Stack gap="6">{children}</Stack>
+        </Box>
+      </Grid>
     </Container>
   );
 }
@@ -88,9 +152,9 @@ function AuthField({ label, children }: { label: string; children: ReactNode }) 
 function SavedCodesCheckbox({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <Checkbox.Root checked={checked} colorPalette="green" onCheckedChange={({ checked: next }) => onChange(next === true)}>
-      <Checkbox.HiddenInput aria-label="I have saved my recovery codes" />
+      <Checkbox.HiddenInput aria-label={t('auth.savedCodes')} />
       <Checkbox.Control />
-      <Checkbox.Label>I have saved my recovery codes</Checkbox.Label>
+      <Checkbox.Label>{t('auth.savedCodes')}</Checkbox.Label>
     </Checkbox.Root>
   );
 }
@@ -117,6 +181,14 @@ function AccountSettings({ children }: { children: ReactNode }) {
   );
 }
 
+function RequireNativeSettings({ children }: { children: ReactNode }) {
+  const { context } = useAuthentication();
+  if (context?.provider === 'keycloak') {
+    return <Navigate to="/account" replace />;
+  }
+  return <>{children}</>;
+}
+
 function Home() {
   const { context } = useAuthentication();
   if (!context) {
@@ -135,19 +207,62 @@ function NotFoundPage() {
   return (
     <ApplicationErrorPage
       code="404"
-      eyebrow="Page not found"
-      title="We couldn’t find that page"
-      description="The address may be outdated, or the page may have moved."
+      eyebrow={t('errors.pageNotFoundEyebrow')}
+      title={t('errors.pageNotFoundTitle')}
+      description={t('errors.pageNotFoundDescription')}
     >
       <Button asChild variant="outline">
-        <Link to="/">Return to the start</Link>
+        <Link to="/">{t('errors.returnToStart')}</Link>
       </Button>
     </ApplicationErrorPage>
   );
 }
 
+function GoogleMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4c-7.7 0-14.4 4.4-17.7 10.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2C40.9 35.6 44 30.4 44 24c0-1.3-.1-2.3-.4-3.5z" />
+    </svg>
+  );
+}
+
+function OrDivider() {
+  return (
+    <HStack gap="3" color="governance.muted" fontSize="xs" textTransform="uppercase" letterSpacing="0.08em">
+      <Box flex="1" h="1px" bg="governance.line" />
+      <Text whiteSpace="nowrap">{t('auth.orContinueWith')}</Text>
+      <Box flex="1" h="1px" bg="governance.line" />
+    </HStack>
+  );
+}
+
+function SignInFeature({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof ShieldCheck;
+  title: string;
+  description: string;
+}) {
+  return (
+    <HStack align="flex-start" gap="3">
+      <Box p="2.5" borderRadius="lg" bg="green.50" color="governance.primary" flexShrink="0">
+        <Icon size={18} aria-hidden="true" />
+      </Box>
+      <Box>
+        <Text fontWeight="semibold">{title}</Text>
+        <Text color="governance.muted" fontSize="sm">{description}</Text>
+      </Box>
+    </HStack>
+  );
+}
+
 function SignInPage() {
-  const { send } = useAuthentication();
+  const { context, send } = useAuthentication();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const verified = params.get('verified') === '1';
@@ -156,14 +271,16 @@ function SignInPage() {
   const [password, setPassword] = useState('');
   const [factor, setFactor] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     if (step === 'mfa' && !factor.trim()) {
-      setError('Enter your authenticator or recovery code.');
+      setError(t('auth.enterAuthenticatorCode'));
       return;
     }
+    setPending(true);
     try {
       const secondFactor = step === 'mfa'
         ? { kind: factor.replace(/-/g, '').length === 32 ? 'RECOVERY' : 'TOTP', code: factor }
@@ -177,6 +294,8 @@ function SignInPage() {
       navigate(next.state === 'SETUP' ? '/setup/enroll' : '/activity', { replace: true });
     } catch (caught) {
       setError(errorText(caught));
+    } finally {
+      setPending(false);
     }
   }
 
@@ -187,58 +306,90 @@ function SignInPage() {
   }
 
   return (
-    <Container as="main" maxW="md" flex="1" py={{ base: '10', md: '20' }} px="4">
-      <Box p={{ base: '6', md: '9' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white" boxShadow="0 18px 52px rgba(23,43,52,0.08)">
-        <Stack gap="6">
-          <Box>
-            <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
-              Account access
-            </Text>
-            <Heading fontSize="3xl">{step === 'mfa' ? 'Enter your code' : 'Sign in'}</Heading>
-            {step === 'mfa' ? (
-              <Text mt="2" color="governance.muted">
-                Password accepted for <strong>{email}</strong>. Enter the code from your authenticator app, or one of your recovery codes.
-              </Text>
-            ) : (
-              <Text mt="2" color="governance.muted">Continue to your governance workspace.</Text>
-            )}
-            {verified && step === 'credentials' ? (
-              <Status text="Email verified. Sign in with your password to set up your authenticator next." />
-            ) : null}
-          </Box>
-          <Box as="form" display="grid" gap="4" onSubmit={submit}>
-            {step === 'credentials' ? (
-              <>
-                <Field.Root>
-                  <Field.Label>Email</Field.Label>
-                  <Input aria-label="Email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
-                </Field.Root>
-                <Field.Root>
-                  <Field.Label>Password</Field.Label>
-                  <Input aria-label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-                </Field.Root>
-              </>
-            ) : (
-              <Field.Root>
-                <Field.Label>Authenticator or recovery code</Field.Label>
-                <Input aria-label="Authenticator or recovery code" autoComplete="one-time-code" value={factor} onChange={(event) => setFactor(event.target.value)} />
-              </Field.Root>
-            )}
-            <Button type="submit" size="lg" colorPalette="green">
-              {step === 'mfa' ? 'Verify code' : 'Sign in'}
-            </Button>
-          </Box>
-          {step === 'mfa' ? (
-            <Button type="button" variant="outline" onClick={useAnotherAccount}>Use a different account</Button>
-          ) : null}
-        </Stack>
+    <AuthFrame>
+      <Box>
+        <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" letterSpacing="0.08em" textTransform="uppercase">
+          {t('auth.accountAccess')}
+        </Text>
+        <Heading fontFamily="heading" fontSize="2xl">
+          {step === 'mfa' ? t('auth.twoFactorTitle') : t('auth.signInTitle')}
+        </Heading>
+        <Text mt="2" color="governance.muted" fontSize="sm">
+          {step === 'mfa'
+            ? t('auth.mfaPrompt', { email })
+            : t('auth.signInDescription')}
+        </Text>
+        {verified && step === 'credentials' ? <Status text={t('auth.emailVerified')} /> : null}
       </Box>
-      {error ? <Message text={error} /> : null}
-      <Stack direction={{ base: 'column', sm: 'row' }} gap="4" mt="5" px="1" fontSize="sm">
-        <Link to="/register">Create account</Link>
-        <Link to="/forgot-password">Forgot password?</Link>
+
+      <Stack as="form" gap="4" onSubmit={submit}>
+        {step === 'credentials' ? (
+          <>
+            <AuthField label={t('common.email')}>
+              <Input aria-label={t('common.email')} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </AuthField>
+            <Field.Root>
+              <HStack justify="space-between" align="baseline">
+                <Field.Label>{t('common.password')}</Field.Label>
+                <ChakraLink asChild fontSize="xs" color="governance.muted">
+                  <Link to="/forgot-password">{t('auth.forgotPassword')}</Link>
+                </ChakraLink>
+              </HStack>
+              <Input aria-label={t('common.password')} type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            </Field.Root>
+          </>
+        ) : (
+          <AuthField label={t('common.authenticatorOrRecoveryCode')}>
+            <Input aria-label={t('common.authenticatorOrRecoveryCode')} autoComplete="one-time-code" value={factor} onChange={(event) => setFactor(event.target.value)} />
+          </AuthField>
+        )}
+        <Button type="submit" size="lg" h="11" colorPalette="green" disabled={pending}>
+          {step === 'mfa' ? t('auth.verifyCode') : t('common.signIn')}
+        </Button>
+        {step === 'mfa' ? (
+          <Button type="button" variant="ghost" size="sm" onClick={useAnotherAccount}>
+            {t('auth.useDifferentAccount')}
+          </Button>
+        ) : null}
       </Stack>
-    </Container>
+
+      {step === 'credentials' ? (
+        <>
+          <OrDivider />
+          <Grid
+            templateColumns={context?.googleLoginEnabled ? { base: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } : '1fr'}
+            gap="3"
+          >
+            <Button asChild variant="outline" h="11" borderColor="governance.line" gap="2">
+              <a href="/api/v1/keycloak/login">
+                <ShieldCheck size={16} aria-hidden="true" />
+                {t('auth.keycloakSso')}
+              </a>
+            </Button>
+            {context?.googleLoginEnabled ? (
+              <Button asChild variant="outline" h="11" borderColor="governance.line" gap="2">
+                <a href="/api/v1/keycloak/login/google">
+                  <GoogleMark />
+                  {t('auth.google')}
+                </a>
+              </Button>
+            ) : null}
+          </Grid>
+        </>
+      ) : null}
+
+      {error ? <Message text={error} /> : null}
+
+      <Box pt="5" borderTopWidth="1px" borderColor="governance.line">
+        <Text fontSize="sm" color="governance.muted" textAlign="center">{t('auth.newHere')}</Text>
+        <HStack justify="center" gap="2" mt="1" fontSize="sm" flexWrap="wrap">
+          <Link to="/register">{t('auth.createAccount')}</Link>
+          <Text color="governance.line" aria-hidden="true">·</Text>
+          <Link to="/register/keycloak">{t('auth.createKeycloakAccount')}</Link>
+        </HStack>
+        <AuthBrand />
+      </Box>
+    </AuthFrame>
   );
 }
 
@@ -248,36 +399,205 @@ function RegisterPage() {
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setStatus('');
+    if (!email.includes('@')) {
+      setError(t('common.enterValidEmail'));
+      return;
+    }
+    if (password.length < 12) {
+      setError(t('common.useAtLeast12Chars'));
+      return;
+    }
+    setPending(true);
     try {
       await send('/api/v1/auth/registrations', 'POST', { email, password });
-      setStatus(ACCEPTED);
+      setStatus(REGISTERED);
     } catch (caught) {
       setError(errorText(caught));
+    } finally {
+      setPending(false);
     }
   }
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Create account</Heading>
-      <Box as="form" display="grid" gap="4" onSubmit={submit}>
-        <AuthField label="Email">
-          <Input aria-label="Email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </AuthField>
-        <AuthField label="New password">
-          <Input aria-label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </AuthField>
-        <Text color="governance.muted" fontSize="sm">Use at least 12 characters.</Text>
-        <Button type="submit" colorPalette="green">Create account</Button>
+    <AuthFrame>
+      {status ? (
+        <>
+          <Box>
+            <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" letterSpacing="0.08em" textTransform="uppercase">
+              {t('auth.accountAccess')}
+            </Text>
+            <Heading fontFamily="heading" fontSize="2xl">{t('auth.checkYourEmail')}</Heading>
+            <Text mt="2" color="governance.muted" fontSize="sm">
+              {t('auth.sentVerificationTo', { email })}
+            </Text>
+          </Box>
+          <Status text={status} />
+          <Text color="governance.muted" fontSize="sm">
+            {t('auth.openLinkToActivate')}
+          </Text>
+          <Button asChild variant="outline">
+            <Link to="/sign-in">{t('common.backToSignIn')}</Link>
+          </Button>
+          <Text fontSize="sm" color="governance.muted" textAlign="center">
+            {t('auth.didntGetEmail')} <Link to="/verify">{t('auth.resendVerificationEmail')}</Link>.
+          </Text>
+        </>
+      ) : (
+        <>
+          <Box>
+            <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" letterSpacing="0.08em" textTransform="uppercase">
+              {t('auth.accountAccess')}
+            </Text>
+            <Heading fontFamily="heading" fontSize="2xl">{t('auth.createAccountTitle')}</Heading>
+            <Text mt="2" color="governance.muted" fontSize="sm">
+              {t('auth.createAccountDescription')}
+            </Text>
+          </Box>
+          <Box as="form" display="grid" gap="4" onSubmit={submit}>
+            <AuthField label={t('common.email')}>
+              <Input aria-label={t('common.email')} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </AuthField>
+            <AuthField label={t('common.newPassword')}>
+              <Input aria-label={t('common.newPassword')} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            </AuthField>
+            <Text color="governance.muted" fontSize="sm">{t('common.useAtLeast12Chars')}</Text>
+            <Button type="submit" colorPalette="green" disabled={pending}>
+              {pending ? t('auth.creatingAccount') : t('auth.createAccountTitle')}
+            </Button>
+          </Box>
+          {error ? <Message text={error} /> : null}
+        </>
+      )}
+      <Box pt="5" borderTopWidth="1px" borderColor="governance.line">
+        <Text fontSize="sm" color="governance.muted" textAlign="center">
+          {t('auth.alreadyHaveAccount')} <Link to="/sign-in">{t('common.signIn')}</Link>
+        </Text>
+        <Text mt="2" fontSize="sm" color="governance.muted" textAlign="center">
+          {t('auth.preferKeycloak')} <Link to="/register/keycloak">{t('auth.createKeycloakAccount')}</Link>
+        </Text>
+        <AuthBrand />
       </Box>
-      {status ? <Status text={status} /> : null}
-      {error ? <Message text={error} /> : null}
-      <Text fontSize="sm"><Link to="/sign-in">Sign in</Link></Text>
-    </AuthPage>
+    </AuthFrame>
+  );
+}
+
+function KeycloakRegisterPage() {
+  const { send } = useAuthentication();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setStatus('');
+    if (!email.includes('@')) {
+      setError(t('common.enterValidEmail'));
+      return;
+    }
+    if (password.length < 12) {
+      setError(t('common.useAtLeast12Chars'));
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError(t('common.passwordsDoNotMatch'));
+      return;
+    }
+    setPending(true);
+    try {
+      await send('/api/v1/keycloak/register', 'POST', {
+        firstName,
+        lastName,
+        email,
+        password,
+      });
+      setStatus(t('auth.registered'));
+      setPassword('');
+      setConfirmPassword('');
+    } catch (caught) {
+      setError(errorText(caught));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <AuthFrame>
+      {status ? (
+        <>
+          <Box>
+            <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" letterSpacing="0.08em" textTransform="uppercase">
+              {t('auth.accountAccess')}
+            </Text>
+            <Heading fontFamily="heading" fontSize="2xl">{t('auth.checkYourEmail')}</Heading>
+            <Text mt="2" color="governance.muted" fontSize="sm">
+              {t('auth.sentVerificationTo', { email })}
+            </Text>
+          </Box>
+          <Status text={status} />
+          <Text color="governance.muted" fontSize="sm">
+            {t('auth.openLinkToActivate')}
+          </Text>
+          <Button asChild variant="outline">
+            <Link to="/sign-in">{t('common.backToSignIn')}</Link>
+          </Button>
+        </>
+      ) : (
+        <>
+          <Box>
+            <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" letterSpacing="0.08em" textTransform="uppercase">
+              {t('auth.accountAccess')}
+            </Text>
+            <Heading fontFamily="heading" fontSize="2xl">{t('auth.keycloakCreateTitle')}</Heading>
+            <Text mt="2" color="governance.muted" fontSize="sm">
+              {t('auth.keycloakCreateDescription')}
+            </Text>
+          </Box>
+          <Box as="form" display="grid" gap="4" onSubmit={submit}>
+            <AuthField label={t('common.firstName')}>
+              <Input aria-label={t('common.firstName')} autoComplete="given-name" value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+            </AuthField>
+            <AuthField label={t('common.lastName')}>
+              <Input aria-label={t('common.lastName')} autoComplete="family-name" value={lastName} onChange={(event) => setLastName(event.target.value)} />
+            </AuthField>
+            <AuthField label={t('common.email')}>
+              <Input aria-label={t('common.email')} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </AuthField>
+            <AuthField label={t('common.newPassword')}>
+              <Input aria-label={t('common.newPassword')} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            </AuthField>
+            <AuthField label={t('common.confirmPassword')}>
+              <Input aria-label={t('common.confirmPassword')} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+            </AuthField>
+            <Text color="governance.muted" fontSize="sm">{t('auth.keycloakPasswordHint')}</Text>
+            <Button type="submit" colorPalette="green" disabled={pending}>
+              {pending ? t('auth.creatingAccount') : t('auth.createAccountTitle')}
+            </Button>
+          </Box>
+          {error ? <Message text={error} /> : null}
+        </>
+      )}
+      <Box pt="5" borderTopWidth="1px" borderColor="governance.line">
+        <Text fontSize="sm" color="governance.muted" textAlign="center">
+          {t('auth.alreadyHaveAccount')} <Link to="/sign-in">{t('common.signIn')}</Link>
+        </Text>
+        <Text mt="2" fontSize="sm" color="governance.muted" textAlign="center">
+          {t('auth.preferStandardAccount')} <Link to="/register">{t('auth.createAccount')}</Link>
+        </Text>
+        <AuthBrand />
+      </Box>
+    </AuthFrame>
   );
 }
 
@@ -304,7 +624,7 @@ function VerifyPage() {
     setError(null);
     try {
       await send('/api/v1/auth/email-verifications/resend', 'POST', { email });
-      setStatus(ACCEPTED);
+      setStatus(RESEND_SENT);
     } catch (caught) {
       setError(errorText(caught));
     }
@@ -312,22 +632,22 @@ function VerifyPage() {
 
   return (
     <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Verify email</Heading>
+      <Heading fontFamily="heading" fontSize="2xl">{t('auth.verifyEmailTitle')}</Heading>
       <Stack gap="3">
       {token ? (
         <>
-          <Text color="governance.muted">Confirm this email address to continue.</Text>
+          <Text color="governance.muted">{t('auth.verifyConfirm')}</Text>
           <Button type="button" colorPalette="green" onClick={verify}>
-            Verify email
+            {t('auth.verifyEmailTitle')}
           </Button>
         </>
       ) : (
-        <Text color="governance.muted">Request a new verification email.</Text>
+        <Text color="governance.muted">{t('auth.verifyRequestNew')}</Text>
       )}
-      <AuthField label="Email">
-        <Input aria-label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+      <AuthField label={t('common.email')}>
+        <Input aria-label={t('common.email')} type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
       </AuthField>
-      <Button type="button" variant="outline" onClick={resend}>Send a new verification email</Button>
+      <Button type="button" variant="outline" onClick={resend}>{t('auth.sendNewVerification')}</Button>
       {status ? <Status text={status} /> : null}
       {error ? <Message text={error} /> : null}
       </Stack>
@@ -346,7 +666,7 @@ function ForgotPasswordPage() {
     setError(null);
     try {
       await send('/api/v1/auth/password-resets', 'POST', { email });
-      setStatus(ACCEPTED);
+      setStatus(RESET_SENT);
     } catch (caught) {
       setError(errorText(caught));
     }
@@ -354,12 +674,12 @@ function ForgotPasswordPage() {
 
   return (
     <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Reset password</Heading>
+      <Heading fontFamily="heading" fontSize="2xl">{t('auth.resetPasswordTitle')}</Heading>
       <Box as="form" display="grid" gap="4" onSubmit={submit}>
-        <AuthField label="Email">
-          <Input aria-label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <AuthField label={t('common.email')}>
+          <Input aria-label={t('common.email')} type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
         </AuthField>
-        <Button type="submit" colorPalette="green">Send reset email</Button>
+        <Button type="submit" colorPalette="green">{t('auth.sendResetEmail')}</Button>
       </Box>
       {status ? <Status text={status} /> : null}
       {error ? <Message text={error} /> : null}
@@ -380,7 +700,7 @@ function ResetPasswordPage() {
     setError(null);
     try {
       await send('/api/v1/auth/password-resets/consume', 'POST', { token, newPassword: password });
-      setStatus('Password changed. Sign in with your new password.');
+      setStatus(t('auth.passwordChangedSignIn'));
     } catch (caught) {
       setError(errorText(caught));
     }
@@ -388,12 +708,12 @@ function ResetPasswordPage() {
 
   return (
     <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Choose a new password</Heading>
+      <Heading fontFamily="heading" fontSize="2xl">{t('auth.chooseNewPassword')}</Heading>
       <Box as="form" display="grid" gap="4" onSubmit={submit}>
-        <AuthField label="New password">
-          <Input aria-label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <AuthField label={t('common.newPassword')}>
+          <Input aria-label={t('common.newPassword')} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
         </AuthField>
-        <Button type="submit" colorPalette="green">Change password</Button>
+        <Button type="submit" colorPalette="green">{t('auth.changePassword')}</Button>
       </Box>
       {status ? <Status text={status} /> : null}
       {error ? <Message text={error} /> : null}
@@ -476,12 +796,12 @@ function SecretDisplay({ secrets }: { secrets: AuthenticatorSecrets }) {
   )}`;
   return (
     <Stack gap="4">
-      <Image src={qr} alt="Authenticator QR code" width="180px" height="180px" borderWidth="1px" borderColor="governance.line" borderRadius="lg" />
+      <Image src={qr} alt={t('auth.authenticatorQrCode')} width="180px" height="180px" borderWidth="1px" borderColor="governance.line" borderRadius="lg" />
       <Box>
-        <Text mb="1" color="governance.muted" fontSize="xs">Manual key</Text>
-        <Code display="block" p="3" borderRadius="md" fontSize="sm" overflowWrap="anywhere">{secrets.manualKey}</Code>
+        <Text mb="1" color="governance.muted" fontSize="xs">{t('auth.manualKey')}</Text>
+        <Code aria-label={t('auth.manualKey')} display="block" p="3" borderRadius="md" fontSize="sm" overflowWrap="anywhere">{secrets.manualKey}</Code>
       </Box>
-      <Grid as="ol" aria-label="Recovery codes" templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }} gap="2" listStyle="none" p="0" m="0">
+      <Grid as="ol" aria-label={t('auth.recoveryCodes')} templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }} gap="2" listStyle="none" p="0" m="0">
         {secrets.recoveryCodes.map((value) => (
           <Code as="li" key={value} p="2" borderRadius="md" textAlign="center">{value}</Code>
         ))}
@@ -509,29 +829,29 @@ function EnrollPage() {
 
   return (
     <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Set up your authenticator</Heading>
-      <Text color="governance.muted">Scan the QR code or enter the manual key in your authenticator app, then enter the current six-digit code.</Text>
-      <Text color="governance.muted" fontSize="sm">This key and your recovery codes are shown once. Save them before continuing.</Text>
-      {state.alreadyIssued ? <Message text="These setup values were already shown. Start a new attempt." /> : null}
+      <Heading fontFamily="heading" fontSize="2xl">{t('auth.setUpAuthenticator')}</Heading>
+      <Text color="governance.muted">{t('auth.scanQr')}</Text>
+      <Text color="governance.muted" fontSize="sm">{t('auth.keyShownOnce')}</Text>
+      {state.alreadyIssued ? <Message text={t('auth.setupValuesAlreadyShown')} /> : null}
       {state.secrets ? <SecretDisplay secrets={state.secrets} /> : null}
       <Box as="form" display="grid" gap="4" onSubmit={state.submit}>
-        <AuthField label="Password">
+        <AuthField label={t('common.password')}>
           <Input
-            aria-label="Password"
+            aria-label={t('common.password')}
             type="password"
             autoComplete="current-password"
             value={state.password}
             onChange={(event) => state.setPassword(event.target.value)}
           />
         </AuthField>
-        <AuthField label="Six-digit code">
-          <Input aria-label="Six-digit code" inputMode="numeric" value={state.code} onChange={(event) => state.setCode(event.target.value)} />
+        <AuthField label={t('common.sixDigitCode')}>
+          <Input aria-label={t('common.sixDigitCode')} inputMode="numeric" value={state.code} onChange={(event) => state.setCode(event.target.value)} />
         </AuthField>
         <SavedCodesCheckbox checked={state.saved} onChange={state.setSaved} />
-        <Button type="submit" colorPalette="green">Complete setup</Button>
+        <Button type="submit" colorPalette="green">{t('auth.completeSetup')}</Button>
       </Box>
       {state.error ? <Message text={state.error} /> : null}
-      <Text fontSize="sm"><Link to="/setup/restart">Restart setup</Link></Text>
+      <Text fontSize="sm"><Link to="/setup/restart">{t('auth.restartSetup')}</Link></Text>
     </AuthPage>
   );
 }
@@ -578,23 +898,23 @@ function RestartPage() {
 
   return (
     <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Restart setup</Heading>
+      <Heading fontFamily="heading" fontSize="2xl">{t('auth.restartSetup')}</Heading>
       {!secrets ? (
         <Box as="form" display="grid" gap="4" onSubmit={restart}>
-          <AuthField label="Password">
-            <Input aria-label="Password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          <AuthField label={t('common.password')}>
+            <Input aria-label={t('common.password')} type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
           </AuthField>
-          <Button type="submit" colorPalette="green">Restart setup</Button>
+          <Button type="submit" colorPalette="green">{t('auth.restartSetup')}</Button>
         </Box>
       ) : (
         <>
           <SecretDisplay secrets={secrets} />
           <Box as="form" display="grid" gap="4" onSubmit={complete}>
-            <AuthField label="Six-digit code">
-              <Input aria-label="Six-digit code" inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value)} />
+            <AuthField label={t('common.sixDigitCode')}>
+              <Input aria-label={t('common.sixDigitCode')} inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value)} />
             </AuthField>
             <SavedCodesCheckbox checked={saved} onChange={setSaved} />
-            <Button type="submit" colorPalette="green">Complete setup</Button>
+            <Button type="submit" colorPalette="green">{t('auth.completeSetup')}</Button>
           </Box>
         </>
       )}
@@ -609,16 +929,16 @@ function AccountPage() {
 
   return (
     <SettingsPanel
-      eyebrow="Settings"
-      title="Account"
-      description="Review your account standing and choose a security setting from the menu."
+      eyebrow={t('account.settingsEyebrow')}
+      title={t('account.title')}
+      description={t('account.description')}
     >
       <Grid as="dl" templateColumns={{ base: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }} gap="3">
         {[
-          ['Email', account?.email ?? 'Unknown'],
-          ['Email verified', 'Verified'],
-          ['Two-factor authentication', 'On'],
-          ['Gateway access', account?.gatewayEntitlement === 'GRANTED' ? 'Granted' : account?.gatewayEntitlement === 'REVOKED' ? 'Revoked' : 'Not granted'],
+          [t('common.email'), account?.email ?? t('account.unknown')],
+          [t('account.emailVerified'), t('account.verified')],
+          [t('account.twoFactor'), t('account.on')],
+          [t('account.gatewayAccess'), account?.gatewayEntitlement === 'GRANTED' ? t('account.granted') : account?.gatewayEntitlement === 'REVOKED' ? t('account.revoked') : t('account.notGranted')],
         ].map(([label, value]) => (
           <Box key={label} p="3" borderRadius="md" bg="governance.canvas">
             <Text as="dt" color="governance.muted" fontSize="xs">{label}</Text>
@@ -626,6 +946,15 @@ function AccountPage() {
           </Box>
         ))}
       </Grid>
+      {context?.provider === 'keycloak' ? (
+        <ChakraLink href="http://127.0.0.1:8180/realms/arg/account" target="_blank" rel="noreferrer" fontSize="sm">
+          {t('account.manageKeycloak')}
+        </ChakraLink>
+      ) : (
+        <Text fontSize="sm" color="governance.muted">
+          {t('account.manageNative')}
+        </Text>
+      )}
     </SettingsPanel>
   );
 }
@@ -641,7 +970,7 @@ function PasswordPage() {
     setError(null);
     try {
       await send('/api/v1/account/password', 'POST', { newPassword: password });
-      setStatus('Password changed. Other sessions were signed out.');
+      setStatus(t('account.passwordChangedSessions'));
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'RECENT_AUTH_REQUIRED') {
         setStepUp(true);
@@ -652,17 +981,17 @@ function PasswordPage() {
   }
 
   return (
-    <SettingsPanel eyebrow="Security" title="Change password">
+    <SettingsPanel eyebrow={t('account.securityEyebrow')} title={t('account.changePasswordTitle')}>
       <Box as="form" display="grid" gap="4"
         onSubmit={(event) => {
           event.preventDefault();
           void change();
         }}
       >
-        <AuthField label="New password">
-          <Input aria-label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <AuthField label={t('common.newPassword')}>
+          <Input aria-label={t('common.newPassword')} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
         </AuthField>
-        <Button type="submit" colorPalette="green">Change password</Button>
+        <Button type="submit" colorPalette="green">{t('auth.changePassword')}</Button>
       </Box>
       {status ? <Status text={status} /> : null}
       {error ? <Message text={error} /> : null}
@@ -725,25 +1054,25 @@ function AuthenticatorPage() {
 
   async function cancel() {
     await send(`/api/v1/account/security/operations/${operationId}`, 'DELETE');
-    setStatus('Pending replacement cancelled. Your current authenticator still works.');
+    setStatus(t('account.pendingReplacementCancelled'));
     setSecrets(null);
   }
 
   return (
-    <SettingsPanel eyebrow="Security" title="Replace authenticator">
-      {!secrets ? <Button colorPalette="green" onClick={start}>Start replacement</Button> : null}
+    <SettingsPanel eyebrow={t('account.securityEyebrow')} title={t('account.replaceAuthenticatorTitle')}>
+      {!secrets ? <Button colorPalette="green" onClick={start}>{t('account.startReplacement')}</Button> : null}
       {secrets ? (
         <>
           <SecretDisplay secrets={secrets} />
-          <Text color="governance.muted">Your current authenticator keeps working until you finish this replacement.</Text>
+          <Text color="governance.muted">{t('account.currentAuthenticatorKeepsWorking')}</Text>
           <Box as="form" display="grid" gap="4" onSubmit={complete}>
-            <AuthField label="Six-digit code">
-              <Input aria-label="Six-digit code" inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value)} />
+            <AuthField label={t('common.sixDigitCode')}>
+              <Input aria-label={t('common.sixDigitCode')} inputMode="numeric" value={code} onChange={(event) => setCode(event.target.value)} />
             </AuthField>
             <SavedCodesCheckbox checked={saved} onChange={setSaved} />
-            <Button type="submit" colorPalette="green">Complete replacement</Button>
+            <Button type="submit" colorPalette="green">{t('account.completeReplacement')}</Button>
           </Box>
-          <Button variant="outline" onClick={cancel}>Cancel replacement</Button>
+          <Button variant="outline" onClick={cancel}>{t('account.cancelReplacement')}</Button>
         </>
       ) : null}
       {status ? <Status text={status} /> : null}
@@ -791,9 +1120,9 @@ function RecoveryGenerationPage() {
         }
         setOperationId(operation.operationId);
         if (operation.state === 'COMPLETED') {
-          setStatus('New recovery codes are active. Other sessions were signed out.');
+          setStatus(t('account.newRecoveryActive'));
         } else if (operation.state === 'PENDING') {
-          setError('These setup values were already shown. Start a new attempt.');
+          setError(t('auth.setupValuesAlreadyShown'));
         } else {
           sessionStorage.removeItem(operationStorageKey);
         }
@@ -837,7 +1166,7 @@ function RecoveryGenerationPage() {
       await send(`/api/v1/account/recovery-code-generations/${operationId}/complete`, 'POST', {
         recoveryCodesSaved: saved,
       });
-      setStatus('New recovery codes are active. Other sessions were signed out.');
+      setStatus(t('account.newRecoveryActive'));
       setCodes(null);
     } catch (caught) {
       setError(errorText(caught));
@@ -851,7 +1180,7 @@ function RecoveryGenerationPage() {
       if (operationStorageKey) {
         sessionStorage.removeItem(operationStorageKey);
       }
-      setStatus('Pending codes cancelled. Your previous codes still work.');
+      setStatus(t('account.pendingCodesCancelled'));
       setCodes(null);
     } catch (caught) {
       setError(errorText(caught));
@@ -859,20 +1188,20 @@ function RecoveryGenerationPage() {
   }
 
   return (
-    <SettingsPanel eyebrow="Security" title="Generate new recovery codes">
-      {!codes ? <Button colorPalette="green" onClick={start}>Generate new recovery codes</Button> : null}
+    <SettingsPanel eyebrow={t('account.securityEyebrow')} title={t('account.generateRecoveryTitle')}>
+      {!codes ? <Button colorPalette="green" onClick={start}>{t('account.generateRecovery')}</Button> : null}
       {codes ? (
         <>
-          <Text color="governance.muted">Generating new codes revokes the previous set after you confirm you saved the new one.</Text>
-          <Grid as="ol" aria-label="Recovery codes" templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }} gap="2" listStyle="none" p="0" m="0">
+          <Text color="governance.muted">{t('account.generateRecoveryDescription')}</Text>
+          <Grid as="ol" aria-label={t('auth.recoveryCodes')} templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }} gap="2" listStyle="none" p="0" m="0">
             {codes.map((value) => (
               <Code as="li" key={value} p="2" borderRadius="md" textAlign="center">{value}</Code>
             ))}
           </Grid>
           <SavedCodesCheckbox checked={saved} onChange={setSaved} />
           <HStack gap="2">
-            <Button colorPalette="green" onClick={complete}>Continue</Button>
-            <Button variant="outline" onClick={cancel}>Cancel</Button>
+            <Button colorPalette="green" onClick={complete}>{t('account.continue')}</Button>
+            <Button variant="outline" onClick={cancel}>{t('common.cancel')}</Button>
           </HStack>
         </>
       ) : null}
@@ -893,9 +1222,9 @@ function RecoveryGenerationPage() {
 function SignedOutPage() {
   return (
     <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Signed out</Heading>
-      <Text color="governance.muted">Your session has ended.</Text>
-      <ChakraLink asChild><Link to="/sign-in">Sign in</Link></ChakraLink>
+      <Heading fontFamily="heading" fontSize="2xl">{t('account.signedOutTitle')}</Heading>
+      <Text color="governance.muted">{t('account.sessionEnded')}</Text>
+      <ChakraLink asChild><Link to="/sign-in">{t('common.signIn')}</Link></ChakraLink>
     </AuthPage>
   );
 }
@@ -905,6 +1234,7 @@ export function AuthenticationRoutes() {
   const showAuthenticationHeader = [
     '/sign-in',
     '/register',
+    '/register/keycloak',
     '/verify',
     '/forgot-password',
     '/reset-password',
@@ -925,6 +1255,7 @@ export function AuthenticationRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register/keycloak" element={<KeycloakRegisterPage />} />
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -964,32 +1295,38 @@ export function AuthenticationRoutes() {
         <Route
           path="/account/password"
           element={
-            <AccountSettings>
-              <PasswordPage />
-            </AccountSettings>
+            <RequireNativeSettings>
+              <AccountSettings>
+                <PasswordPage />
+              </AccountSettings>
+            </RequireNativeSettings>
           }
         />
         <Route
           path="/account/authenticator"
           element={
-            <AccountSettings>
-              <AuthenticatorPage />
-            </AccountSettings>
+            <RequireNativeSettings>
+              <AccountSettings>
+                <AuthenticatorPage />
+              </AccountSettings>
+            </RequireNativeSettings>
           }
         />
         <Route
           path="/account/recovery-codes"
           element={
-            <AccountSettings>
-              <RecoveryGenerationPage />
-            </AccountSettings>
+            <RequireNativeSettings>
+              <AccountSettings>
+                <RecoveryGenerationPage />
+              </AccountSettings>
+            </RequireNativeSettings>
           }
         />
         <Route
           path="/account/gateway-keys"
           element={
             <AccountSettings>
-              <Suspense fallback={<PageLoading label="Loading gateway keys" />}>
+              <Suspense fallback={<PageLoading label={t('loading.gatewayKeys')} />}>
                 <GatewayKeysPage />
               </Suspense>
             </AccountSettings>
