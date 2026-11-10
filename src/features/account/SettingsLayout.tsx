@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Button, Container, Grid, Heading, Stack, Text } from '@chakra-ui/react';
-import { Cable, KeyRound, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
+import { Cable, KeyRound, LockKeyhole, ShieldCheck, Terminal, UserRound, Users } from 'lucide-react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuthentication } from '../../AuthenticationContext';
 import { t } from '../../i18n';
@@ -17,6 +17,8 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
       { label: t('account.recoveryCodes'), to: '/account/recovery-codes', icon: KeyRound, external: false },
     ]),
     { label: t('gateway.title'), to: '/account/gateway-keys', icon: Cable, external: false },
+    { label: t('setup.title'), to: '/account/agent-setup', icon: Terminal, external: false },
+    { label: t('groups.title'), to: '/account/groups', icon: Users, external: false },
     ...(keycloak ? [{
       label: t('account.keycloakAccount'),
       to: 'http://127.0.0.1:8180/realms/arg/account',

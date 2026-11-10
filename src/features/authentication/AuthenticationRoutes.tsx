@@ -18,6 +18,10 @@ import { StepUpDialog } from './StepUpDialog';
 
 const GatewayKeysPage = lazy(() => import('../gateway/GatewayKeysPage')
   .then((module) => ({ default: module.GatewayKeysPage })));
+const AgentSetupPage = lazy(() => import('../setup/AgentSetupPage')
+  .then((module) => ({ default: module.AgentSetupPage })));
+const GroupsPage = lazy(() => import('../groups/GroupsPage')
+  .then((module) => ({ default: module.GroupsPage })));
 
 const REGISTERED = t('auth.registered');
 const RESEND_SENT = t('auth.resendSent');
@@ -1343,6 +1347,26 @@ export function AuthenticationRoutes() {
             <AccountSettings>
               <Suspense fallback={<PageLoading label={t('loading.gatewayKeys')} />}>
                 <GatewayKeysPage />
+              </Suspense>
+            </AccountSettings>
+          }
+        />
+        <Route
+          path="/account/agent-setup"
+          element={
+            <AccountSettings>
+              <Suspense fallback={<PageLoading label={t('loading.account')} />}>
+                <AgentSetupPage />
+              </Suspense>
+            </AccountSettings>
+          }
+        />
+        <Route
+          path="/account/groups"
+          element={
+            <AccountSettings>
+              <Suspense fallback={<PageLoading label={t('loading.account')} />}>
+                <GroupsPage />
               </Suspense>
             </AccountSettings>
           }
