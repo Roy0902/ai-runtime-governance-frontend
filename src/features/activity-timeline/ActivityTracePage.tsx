@@ -331,6 +331,7 @@ export function ActivityTracePage() {
     lastLoaded,
     error,
     expanded,
+    live,
     toggle,
     refresh,
     loadMore,
@@ -352,6 +353,9 @@ export function ActivityTracePage() {
           </Text>
         </div>
         <HStack gap="2">
+          <Badge colorPalette={live ? 'green' : 'gray'} variant="subtle">
+            {live ? 'Live' : 'Manual refresh'}
+          </Badge>
           <Button asChild size="sm" variant="outline"><Link to="/activity">Back to traces</Link></Button>
           <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
             Refresh

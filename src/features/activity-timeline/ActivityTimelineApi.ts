@@ -117,14 +117,37 @@ function toActivityEvent(dto: ActivityEventDto): ActivityTimelineItem {
 export async function fetchTracePage(cursor?: string | null): Promise<LoadedPage<TraceItem>> {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
   const page = await apiRequest<PageDto<TraceSummaryDto>>(`/api/v1/traces${query}`);
-  const items: TraceItem[] = page.items.map((item) => {
-    if (item.tombstone) {
-      const tombstone: TraceTombstone = { tombstone: true, traceId: item.traceId };
-      return tombstone;
-    }
-    return item;
-  });
-  return { items, nextCursor: page.nextCursor };
+  return { items: page.items.map(toTraceItem), nextCursor: page.nextCursor };
+}
+
+function toTraceItem(item: TraceSummaryDto): TraceItem {
+  if (item.tombstone) {
+    const tombstone: TraceTombstone = { tombstone: true, traceId: item.traceId };
+    return tombstone;
+  }
+  return item;
+}
+
+/** Cursor for live polling: the newest row already displayed. */
+export function liveToken(receivedAt: string | null | undefined, id: string): string | null {
+  return receivedAt ? `${receivedAt}|${id}` : null;
+}
+
+export async function fetchLiveTraces(since: string | null): Promise<TraceItem[]> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : '?since=start';
+  const page = await apiRequest<PageDto<TraceSummaryDto>>(`/api/v1/timeline/traces${query}`);
+  return page.items.map(toTraceItem);
+}
+
+export async function fetchLiveEvents(
+  traceId: string,
+  since: string | null,
+): Promise<ActivityTimelineItem[]> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : '?since=start';
+  const page = await apiRequest<PageDto<ActivityEventDto>>(
+    `/api/v1/timeline/traces/${encodeURIComponent(traceId)}/events${query}`,
+  );
+  return page.items.map(toActivityEvent);
 }
 
 export async function fetchTrace(traceId: string): Promise<TraceDetail> {

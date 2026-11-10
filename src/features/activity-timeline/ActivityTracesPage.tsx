@@ -22,7 +22,7 @@ function failureCopy(error: unknown): { message: string; signIn: boolean } {
 }
 
 export function ActivityTracesPage() {
-  const { items, nextCursor, loading, pending, error, refresh, loadMore } = useTraceList();
+  const { items, nextCursor, loading, pending, error, live, refresh, loadMore } = useTraceList();
   const failure = error ? failureCopy(error) : null;
 
   return (
@@ -35,9 +35,14 @@ export function ActivityTracesPage() {
             Inspect reported agent, model, tool, guard, and approval activity without exposing payloads.
           </Text>
         </div>
-        <Button type="button" variant="outline" onClick={refresh} disabled={loading}>
-          Refresh
-        </Button>
+        <HStack gap="2" align="center">
+          <Badge colorPalette={live ? 'green' : 'gray'} variant="subtle">
+            {live ? 'Live' : 'Manual refresh'}
+          </Badge>
+          <Button type="button" variant="outline" onClick={refresh} disabled={loading}>
+            Refresh
+          </Button>
+        </HStack>
       </Flex>
 
       <Box as="section" aria-labelledby="traces-heading" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
