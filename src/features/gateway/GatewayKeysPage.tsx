@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Badge, Box, Button, Code, Container, Field, Flex, Grid, Heading, HStack, Input, Link as ChakraLink, Table, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Code, Field, Flex, Grid, Heading, HStack, Input, Stack, Table, Text } from '@chakra-ui/react';
 import { Copy, RefreshCw, X } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import { useAuthentication } from '../../AuthenticationContext';
@@ -161,8 +160,8 @@ export function GatewayKeysPage() {
   }
 
   return (
-    <Container as="main" maxW="1440px" py={{ base: '6', md: '10' }} px={{ base: '4', md: '8' }}>
-      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap" mb="6">
+    <Stack gap="6">
+      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap">
         <div>
           <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Access</Text>
           <Heading fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Gateway keys</Heading>
@@ -175,8 +174,6 @@ export function GatewayKeysPage() {
           <RefreshCw size={16} aria-hidden="true" /> Refresh
         </Button>
       </Flex>
-
-      <ChakraLink asChild display="inline-flex" mb="5" fontSize="sm"><Link to="/account">Back to account</Link></ChakraLink>
 
       {!entitled ? (
         <Text role="status" mb="5" p="4" borderRadius="lg" bg="orange.50" color="orange.900" fontSize="sm">
@@ -383,6 +380,6 @@ export function GatewayKeysPage() {
           }
         }}
       />
-    </Container>
+    </Stack>
   );
 }
