@@ -11,10 +11,15 @@ import { ApplicationErrorPage } from '../../components/ApplicationErrorPage';
 import { ApplicationHeader } from '../../components/layout/ApplicationHeader';
 import { RequireHuman } from '../../components/layout/RequireHuman';
 import { PageLoading } from '../../components/ui/PageLoading';
+import { SettingsLayout, SettingsPanel } from '../account/SettingsLayout';
 import { StepUpDialog } from './StepUpDialog';
 
 const GatewayKeysPage = lazy(() => import('../gateway/GatewayKeysPage')
   .then((module) => ({ default: module.GatewayKeysPage })));
+const AgentSetupPage = lazy(() => import('../setup/AgentSetupPage')
+  .then((module) => ({ default: module.AgentSetupPage })));
+const GroupsPage = lazy(() => import('../groups/GroupsPage')
+  .then((module) => ({ default: module.GroupsPage })));
 
 const ACCEPTED = "If this request is eligible, we'll send an email with the next steps.";
 
@@ -107,6 +112,14 @@ function RequireSetup({ children }: { children: ReactNode }) {
     return <Navigate to="/sign-in" replace />;
   }
   return <>{children}</>;
+}
+
+function AccountSettings({ children }: { children: ReactNode }) {
+  return (
+    <RequireHuman>
+      <SettingsLayout>{children}</SettingsLayout>
+    </RequireHuman>
+  );
 }
 
 function Home() {
@@ -572,8 +585,11 @@ function AccountPage() {
   const account = context?.account;
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Account</Heading>
+    <SettingsPanel
+      eyebrow="Settings"
+      title="Account"
+      description="Review your account standing and manage your security settings."
+    >
       <Grid as="dl" templateColumns={{ base: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }} gap="3">
         {[
           ['Email', account?.email ?? 'Unknown'],
@@ -588,13 +604,10 @@ function AccountPage() {
           </Box>
         ))}
       </Grid>
-      <Stack align="flex-start" gap="2" fontSize="sm">
-        <ChakraLink asChild><Link to="/account/password">Change password</Link></ChakraLink>
-        <ChakraLink asChild><Link to="/account/authenticator">Replace authenticator</Link></ChakraLink>
-        <ChakraLink asChild><Link to="/account/recovery-codes">Generate new recovery codes</Link></ChakraLink>
-        <ChakraLink asChild><Link to="/account/gateway-keys">Gateway keys</Link></ChakraLink>
-      </Stack>
-    </AuthPage>
+      <Text fontSize="sm" color="governance.muted">
+        Manage password, authenticator and recovery codes from the settings menu.
+      </Text>
+    </SettingsPanel>
   );
 }
 
@@ -620,8 +633,7 @@ function PasswordPage() {
   }
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Change password</Heading>
+    <SettingsPanel eyebrow="Security" title="Change password">
       <Box as="form" display="grid" gap="4"
         onSubmit={(event) => {
           event.preventDefault();
@@ -643,7 +655,7 @@ function PasswordPage() {
           void change();
         }}
       />
-    </AuthPage>
+    </SettingsPanel>
   );
 }
 
@@ -699,8 +711,7 @@ function AuthenticatorPage() {
   }
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Replace authenticator</Heading>
+    <SettingsPanel eyebrow="Security" title="Replace authenticator">
       {!secrets ? <Button colorPalette="green" onClick={start}>Start replacement</Button> : null}
       {secrets ? (
         <>
@@ -729,7 +740,7 @@ function AuthenticatorPage() {
           }
         }}
       />
-    </AuthPage>
+    </SettingsPanel>
   );
 }
 
@@ -829,8 +840,7 @@ function RecoveryGenerationPage() {
   }
 
   return (
-    <AuthPage>
-      <Heading fontFamily="heading" fontSize="2xl">Generate new recovery codes</Heading>
+    <SettingsPanel eyebrow="Security" title="Generate new recovery codes">
       {!codes ? <Button colorPalette="green" onClick={start}>Generate new recovery codes</Button> : null}
       {codes ? (
         <>
@@ -857,7 +867,7 @@ function RecoveryGenerationPage() {
           void start();
         }}
       />
-    </AuthPage>
+    </SettingsPanel>
   );
 }
 
@@ -927,43 +937,63 @@ export function AuthenticationRoutes() {
         <Route
           path="/account"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <AccountPage />
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route
           path="/account/password"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <PasswordPage />
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route
           path="/account/authenticator"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <AuthenticatorPage />
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route
           path="/account/recovery-codes"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <RecoveryGenerationPage />
-            </RequireHuman>
+            </AccountSettings>
           }
         />
         <Route
           path="/account/gateway-keys"
           element={
-            <RequireHuman>
+            <AccountSettings>
               <Suspense fallback={<PageLoading label="Loading gateway keys" />}>
                 <GatewayKeysPage />
               </Suspense>
-            </RequireHuman>
+            </AccountSettings>
+          }
+        />
+        <Route
+          path="/account/agent-setup"
+          element={
+            <AccountSettings>
+              <Suspense fallback={<PageLoading label="Loading account" />}>
+                <AgentSetupPage />
+              </Suspense>
+            </AccountSettings>
+          }
+        />
+        <Route
+          path="/account/groups"
+          element={
+            <AccountSettings>
+              <Suspense fallback={<PageLoading label="Loading account" />}>
+                <GroupsPage />
+              </Suspense>
+            </AccountSettings>
           }
         />
         <Route path="/signed-out" element={<SignedOutPage />} />
