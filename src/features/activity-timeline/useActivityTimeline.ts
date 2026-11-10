@@ -118,10 +118,11 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
       setTrace(nextTrace);
       setEvents(page.items);
       setNextCursor(page.nextCursor);
-      setExpanded((previous) => {
-        const kept = [...previous].filter((id) => page.items.some((event) => event.eventId === id));
-        return new Set(kept);
-      });
+      setExpanded(new Set(
+        page.items
+          .filter((item) => !('tombstone' in item))
+          .map((item) => item.eventId),
+      ));
     } catch (caught) {
       if (current === generation.current) {
         setError(caught);
@@ -161,6 +162,15 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
       cursor.current = page.nextCursor;
       setNextCursor(page.nextCursor);
       setEvents((previous) => [...previous, ...page.items]);
+      setExpanded((previous) => {
+        const next = new Set(previous);
+        for (const item of page.items) {
+          if (!('tombstone' in item)) {
+            next.add(item.eventId);
+          }
+        }
+        return next;
+      });
       setLastLoaded(page.items.length);
     } catch (caught) {
       if (current === generation.current) {

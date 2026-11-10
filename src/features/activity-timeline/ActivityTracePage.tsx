@@ -14,7 +14,7 @@ import {
   StatusBadge,
   TraceSummaryPanel,
 } from './ActivityTimelinePresentation';
-import type { ActivityEvent, ModelUsageSummary } from './ActivityTimelineTypes';
+import type { ActivityEvent, ActivityTimelineItem, ModelUsageSummary, TraceDetail } from './ActivityTimelineTypes';
 import { TraceUsagePanel } from './TraceUsagePanel';
 import { useTraceDetail } from './useActivityTimeline';
 
@@ -56,23 +56,40 @@ function eventState(event: ActivityEvent): string {
   }
 }
 
-function eventMetadata(event: ActivityEvent): string[] {
-  switch (event.kind) {
-    case 'prompt':
-      return event.metadata.ruleIds.length
-        ? [`Rules: ${event.metadata.ruleIds.join(', ')}`]
-        : [];
-    case 'guard':
-      return [
-        ...(event.metadata.policyId ? [`Policy: ${event.metadata.policyId}`] : []),
-        ...(event.metadata.policyVersion ? [`Version: ${event.metadata.policyVersion}`] : []),
-        ...(event.metadata.ruleIds.length ? [`Rules: ${event.metadata.ruleIds.join(', ')}`] : []),
-      ];
-    case 'approval':
-      return event.metadata.approvalId ? [`Approval ID: ${shortId(event.metadata.approvalId)}`] : [];
-    default:
-      return event.metadata.name ? [`Reported name: ${event.metadata.name}`] : [];
+function displayValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return 'null';
   }
+  if (Array.isArray(value)) {
+    return value.length ? value.map(displayValue).join(', ') : '[]';
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
+function RawJson({ value }: { value: unknown }) {
+  return (
+    <Box
+      as="pre"
+      gridColumn={{ md: '1 / -1' }}
+      m="0"
+      p="3"
+      bg="white"
+      borderWidth="1px"
+      borderColor="governance.line"
+      borderRadius="md"
+      fontFamily="mono"
+      fontSize="xs"
+      whiteSpace="pre-wrap"
+      wordBreak="break-word"
+      maxH="96"
+      overflowY="auto"
+    >
+      {JSON.stringify(value, null, 2)}
+    </Box>
+  );
 }
 
 function tokens(value: number | null): string {
@@ -121,27 +138,27 @@ function ModelStepUsage({ traceId, usage }: { traceId: string; usage: ModelUsage
       <Text color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">Model call</Text>
       <Grid templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr))' }} gap="3">
         {[
+          ['Usage ID', usage.usageId],
           ['Input tokens', tokens(usage.inputTokens)],
           ['Output tokens', tokens(usage.outputTokens)],
+          ['Cached input tokens', tokens(usage.cachedInputTokens)],
+          ['Reasoning output tokens', tokens(usage.reasoningOutputTokens)],
           ['Total tokens', tokens(usage.totalTokens)],
           ['Cost', money(usage.totalCostUsd, usage.currency)],
+          ['Currency', usage.currency || 'null'],
+          ['Duration', usage.durationMs === null ? 'null' : `${usage.durationMs} ms`],
+          ['Finish reasons', displayValue(usage.finishReasons)],
+          ['Tool calls', displayValue(usage.toolCallNames)],
+          ['Langfuse observation ID', usage.langfuseObservationId ?? 'null'],
         ].map(([label, value]) => (
           <Box key={label}>
             <Text color="governance.muted" fontSize="xs">{label}</Text>
-            <Text mt="1" fontSize="sm" fontWeight="medium">{value}</Text>
+            <Text mt="1" fontSize="sm" fontWeight="medium" overflowWrap="anywhere">{value}</Text>
           </Box>
         ))}
       </Grid>
-      {usage.finishReasons.length ? (
-        <Text fontSize="sm" color="governance.muted">
-          Finish: {usage.finishReasons.join(', ')}
-        </Text>
-      ) : null}
-      {usage.toolCallNames.length ? (
-        <Text fontSize="sm" color="governance.muted">
-          Tools requested: {usage.toolCallNames.join(', ')}
-        </Text>
-      ) : null}
+      <Text color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">Raw usage JSON</Text>
+      <RawJson value={usage} />
       {observationId ? (
         <Button size="sm" variant="ghost" alignSelf="flex-start" aria-expanded={open} onClick={toggle}>
           {open ? 'Hide output' : 'View output'}
@@ -235,18 +252,31 @@ function EventCard({
           {open ? (
             <Grid id={`event-details-${event.eventId}`} mt="3" templateColumns={{ base: '1fr', md: 'repeat(2, minmax(0, 1fr))' }} gap="3" p="3" borderRadius="md" bg="governance.canvas">
               {[
+                ['Event ID', event.eventId],
+                ['Trace ID', event.traceId],
+                ['Parent event ID', event.parentEventId ?? 'null'],
+                ['Relationship', event.relationship],
+                ['Kind', event.kind],
                 ['Received (UTC)', formatTime(event.receivedAt)],
+                ['Received (raw)', event.receivedAt],
                 ['Source time (UTC)', formatTime(event.sourceAt)],
-                ['Duration', event.durationMs === null ? 'Not reported' : `${event.durationMs} ms`],
-                ...(event.identity ? [['Reporter', event.identity]] : []),
+                ['Source time (raw)', event.sourceAt ?? 'null'],
+                ['Duration (ms)', event.durationMs === null ? 'null' : String(event.durationMs)],
+                ['Reporter', event.identity ?? 'null'],
               ].map(([label, value]) => (
                 <Box key={label}>
                   <Text color="governance.muted" fontSize="xs">{label}</Text>
-                  <Text mt="1" fontSize="sm" fontWeight="medium">{value}</Text>
+                  <Text mt="1" fontSize="sm" fontWeight="medium" overflowWrap="anywhere">{value}</Text>
                 </Box>
               ))}
-              {eventMetadata(event).map((value) => (
-                <Text key={value} gridColumn={{ md: '1 / -1' }} fontSize="sm">{value}</Text>
+              <Text gridColumn={{ md: '1 / -1' }} color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+                All metadata fields
+              </Text>
+              {Object.entries(event.metadata as unknown as Record<string, unknown>).map(([key, value]) => (
+                <Box key={key}>
+                  <Text color="governance.muted" fontSize="xs">{key}</Text>
+                  <Text mt="1" fontSize="sm" fontWeight="medium" overflowWrap="anywhere">{displayValue(value)}</Text>
+                </Box>
               ))}
               {event.kind === 'model' && event.usage ? (
                 <ModelStepUsage traceId={event.traceId} usage={event.usage} />
@@ -256,6 +286,10 @@ function EventCard({
                   Tool arguments and results are not reported by the hook contract.
                 </Text>
               ) : null}
+              <Text gridColumn={{ md: '1 / -1' }} color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+                Raw event JSON
+              </Text>
+              <RawJson value={event.raw ?? event} />
             </Grid>
           ) : null}
         </Box>
@@ -268,6 +302,19 @@ function EventCard({
           </Stack>
         ) : null}
       </Stack>
+    </Box>
+  );
+}
+
+function TraceRawPanel({ trace, events }: { trace: TraceDetail; events: ActivityTimelineItem[] }) {
+  return (
+    <Box as="section" aria-labelledby="raw-timeline-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+      <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Raw payload</Text>
+      <Heading id="raw-timeline-heading" fontFamily="heading" fontSize="xl" mb="2">Everything returned by the timeline API</Heading>
+      <Text mb="4" color="governance.muted" fontSize="sm">
+        Trace detail plus all loaded events, before display-level filtering. Use this to decide what to keep.
+      </Text>
+      <RawJson value={{ trace, events }} />
     </Box>
   );
 }
@@ -420,6 +467,8 @@ export function ActivityTracePage() {
           ) : null}
         </Box>
       ) : null}
+
+      {trace ? <TraceRawPanel trace={trace} events={events} /> : null}
     </Container>
   );
 }

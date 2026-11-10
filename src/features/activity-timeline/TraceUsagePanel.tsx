@@ -230,6 +230,30 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
                         </Table.Cell>
                       </Table.Row>
                     ) : null}
+                    <Table.Row>
+                      <Table.Cell colSpan={11} bg="governance.canvas">
+                        <Text mb="2" color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+                          All usage fields
+                        </Text>
+                        <Box
+                          as="pre"
+                          m="0"
+                          p="3"
+                          bg="white"
+                          borderWidth="1px"
+                          borderColor="governance.line"
+                          borderRadius="md"
+                          fontFamily="mono"
+                          fontSize="xs"
+                          whiteSpace="pre-wrap"
+                          wordBreak="break-word"
+                          maxH="96"
+                          overflowY="auto"
+                        >
+                          {JSON.stringify(row, null, 2)}
+                        </Box>
+                      </Table.Cell>
+                    </Table.Row>
                   </Fragment>
                 );
               })}

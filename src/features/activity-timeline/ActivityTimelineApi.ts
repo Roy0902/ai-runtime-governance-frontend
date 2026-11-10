@@ -68,6 +68,7 @@ function toActivityEvent(dto: ActivityEventDto): ActivityTimelineItem {
     sourceAt: dto.sourceAt,
     durationMs: dto.durationMs,
     identity: dto.identity,
+    raw: dto as unknown as Record<string, unknown>,
   };
 
   switch (dto.kind) {
