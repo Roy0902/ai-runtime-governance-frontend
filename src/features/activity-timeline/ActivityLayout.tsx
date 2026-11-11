@@ -124,21 +124,22 @@ export function ActivityLayout() {
         ) : null}
 
         {!showError && !signInRequired && items.length > 0 ? (
-          <Stack as="ul" aria-label={t('activity.tracesAria')} listStyle="none" gap="2" p="0" m="0">
+          <Stack as="ul" aria-label={t('activity.tracesAria')} listStyle="none" gap="2" p="0" m="0" w="full">
             {items.map((trace) => {
               if ('tombstone' in trace) {
                 return (
-                  <Box as="li" key={trace.traceId} p="3" borderWidth="1px" borderStyle="dashed" borderColor="governance.line" borderRadius="lg" color="governance.muted" fontSize="sm">
+                  <Box as="li" key={trace.traceId} w="full" p="3" borderWidth="1px" borderStyle="dashed" borderColor="governance.line" borderRadius="lg" color="governance.muted" fontSize="sm">
                     {t('activity.traceUnavailable')}
                   </Box>
                 );
               }
               const active = pathname === `/activity/${trace.traceId}`;
               return (
-                <Box as="li" key={trace.traceId}>
-                  <ChakraLink asChild color="inherit" _hover={{ textDecoration: 'none' }}>
+                <Box as="li" key={trace.traceId} w="full">
+                  <ChakraLink asChild display="block" w="full" color="inherit" _hover={{ textDecoration: 'none' }}>
                     <Link to={`/activity/${trace.traceId}`} aria-current={active ? 'page' : undefined}>
                       <Box
+                        w="full"
                         p="3"
                         bg="white"
                         borderWidth="1px"
