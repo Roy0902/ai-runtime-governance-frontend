@@ -12,7 +12,6 @@ import {
   shortId,
   statusLabel,
   StatusBadge,
-  TraceSummaryPanel,
 } from './ActivityTimelinePresentation';
 import type { ActivityEvent, ActivityTimelineItem, ModelUsageSummary, TraceDetail } from './ActivityTimelineTypes';
 import { TraceUsagePanel } from './TraceUsagePanel';
@@ -274,17 +273,61 @@ function ModelStepUsage({ traceId, usage }: { traceId: string; usage: ModelUsage
   );
 }
 
+function SessionLayer({ trace }: { trace: TraceDetail }) {
+  return (
+    <Box as="section" aria-label="Session" p={{ base: '5', md: '6' }} borderRadius="2xl" bg="governance.ink" color="white">
+      <Flex justify="space-between" align="flex-start" gap="4" wrap="wrap">
+        <Box>
+          <Text color="whiteAlpha.700" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+            Layer 1 · Session
+          </Text>
+          <Heading mt="2" fontFamily="heading" fontSize="2xl">
+            {trace.identity ?? 'Identity not reported'}
+          </Heading>
+          <Text as="code" display="block" mt="2" color="whiteAlpha.700" fontSize="xs" overflowWrap="anywhere">
+            {trace.traceId}
+          </Text>
+        </Box>
+        <StatusBadge value={trace.executionStatus} />
+      </Flex>
+      <Grid mt="5" templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }} gap="3">
+        {[
+          ['Execution', statusLabel(trace.executionStatus)],
+          ['Telemetry', statusLabel(trace.telemetryStatus)],
+          ['Prompt guard', outcomeLabel(trace.guardOutcome)],
+          ['Received (UTC)', formatTime(trace.receivedAt)],
+        ].map(([label, value]) => (
+          <Box key={label} p="3" borderRadius="lg" bg="whiteAlpha.100">
+            <Text color="whiteAlpha.700" fontSize="xs">{label}</Text>
+            <Text mt="1" fontSize="sm" fontWeight="semibold">{value}</Text>
+          </Box>
+        ))}
+      </Grid>
+      <HStack mt="4" gap="2" flexWrap="wrap">
+        {Object.entries(trace.coverage).map(([label, value]) => (
+          <Badge key={label} variant="subtle" colorPalette={value === 'observed' ? 'green' : 'gray'}>
+            {label}: {statusLabel(value)}
+          </Badge>
+        ))}
+      </HStack>
+    </Box>
+  );
+}
+
 function EventCard({
   node,
   expanded,
   onToggle,
+  variant = 'agent',
 }: {
   node: EventNode;
   expanded: Set<string>;
   onToggle: (eventId: string) => void;
+  variant?: 'prompt' | 'agent';
 }) {
   const { event } = node;
   const open = expanded.has(event.eventId);
+  const isPrompt = variant === 'prompt';
   const kindPalette: Record<string, 'green' | 'orange' | 'red' | 'blue' | 'purple' | 'gray'> = {
     prompt: 'blue',
     guard: 'green',
@@ -298,13 +341,38 @@ function EventCard({
   return (
     <Box as="li" listStyle="none">
       <Stack gap="3">
-        <Box as="article" p={{ base: '3', md: '4' }} borderLeftWidth="3px" borderColor={`${kindColor}.400`} borderTopWidth="1px" borderRightWidth="1px" borderBottomWidth="1px" borderTopColor="governance.line" borderRightColor="governance.line" borderBottomColor="governance.line" borderRadius="lg" bg="white">
+        <Box
+          as="article"
+          position="relative"
+          p={isPrompt ? { base: '4', md: '5' } : '3'}
+          bg={isPrompt ? 'blue.50' : 'white'}
+          borderWidth="1px"
+          borderColor={isPrompt ? 'blue.200' : 'governance.line'}
+          borderLeftWidth={isPrompt ? '4px' : '3px'}
+          borderLeftColor={isPrompt ? 'blue.400' : `${kindColor}.400`}
+          borderRadius={isPrompt ? 'xl' : 'md'}
+        >
+          {isPrompt ? (
+            <Box
+              position="absolute"
+              left={{ base: '-18px', md: '-26px' }}
+              top="7"
+              w="4"
+              h="4"
+              borderRadius="full"
+              bg="blue.400"
+              borderWidth="2px"
+              borderColor="white"
+            />
+          ) : null}
           <Flex justify="space-between" align="flex-start" gap="3" wrap="wrap">
             <HStack align="flex-start" gap="3">
               <Badge colorPalette={kindColor} variant="subtle">{event.kind}</Badge>
-              <Badge colorPalette="gray" variant="outline">{layerName(event.kind)}</Badge>
+              <Badge colorPalette={isPrompt ? 'blue' : 'gray'} variant={isPrompt ? 'solid' : 'outline'}>
+                {isPrompt ? 'Layer 2 · Prompt' : `Layer 3 · ${layerName(event.kind)}`}
+              </Badge>
               <Box>
-                <Heading as="h3" fontFamily="heading" fontSize="md">{eventHeading(event)}</Heading>
+                <Heading as="h3" fontFamily="heading" fontSize={isPrompt ? 'lg' : 'sm'}>{isPrompt ? 'Prompt' : eventHeading(event)}</Heading>
                 <Text mt="1" color="governance.muted" fontSize="xs">{formatTime(event.receivedAt)}</Text>
                 {event.kind === 'model' && event.usage ? (
                   <Text mt="1" color="governance.muted" fontSize="xs">
@@ -381,11 +449,26 @@ function EventCard({
         </Box>
 
         {node.children.length ? (
-          <Stack as="ol" gap="3" pl={{ base: '4', md: '7' }} ml={{ base: '2', md: '4' }} borderLeftWidth="2px" borderColor="governance.line">
-            {node.children.map((child) => (
-              <EventCard key={child.event.eventId} node={child} expanded={expanded} onToggle={onToggle} />
-            ))}
-          </Stack>
+          <Box mt="3">
+            <Stack
+              as="ol"
+              gap="2"
+              pl={{ base: '4', md: '6' }}
+              ml={{ base: '1', md: '2' }}
+              borderLeftWidth="2px"
+              borderColor={isPrompt ? 'blue.200' : 'governance.line'}
+            >
+              {node.children.map((child) => (
+                <EventCard
+                  key={child.event.eventId}
+                  node={child}
+                  expanded={expanded}
+                  onToggle={onToggle}
+                  variant="agent"
+                />
+              ))}
+            </Stack>
+          </Box>
         ) : null}
       </Stack>
     </Box>
@@ -469,50 +552,19 @@ export function ActivityTracePage() {
       ) : null}
 
       {trace ? (
-        <>
-          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
-            Layer 1 · Session
-          </Text>
-          <TraceSummaryPanel trace={trace} />
-        </>
-      ) : null}
-
-      {trace && traceId ? <TraceUsagePanel traceId={traceId} /> : null}
-
-      {trace && approvals.length ? (
-        <Box as="section" aria-labelledby="approval-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
-          <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Reported resolutions</Text>
-          <Heading id="approval-heading" fontFamily="heading" fontSize="xl" mb="4">Approval history</Heading>
-          <Stack as="ul" listStyle="none" gap="2" p="0" m="0">
-            {approvals.map((approval) => (
-              <Flex as="li" key={approval.eventId} align="center" justify="space-between" gap="3" flexWrap="wrap" p="3" borderRadius="md" bg="governance.canvas">
-                <Text fontFamily="mono" fontSize="sm">Approval {shortId(approval.eventId)}</Text>
-                <Badge colorPalette="orange" variant="subtle">{approval.metadata.state ?? 'Not reported'}</Badge>
-                <Text color="governance.muted" fontSize="sm">
-                  {approval.metadata.approvalId
-                    ? `ID ${shortId(approval.metadata.approvalId)}`
-                    : 'ID not reported'}
-                </Text>
-              </Flex>
-            ))}
-          </Stack>
-        </Box>
-      ) : null}
-
-      {trace ? (
         <Box as="section" aria-labelledby="timeline-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
           <Flex justify="space-between" align="flex-end" gap="4" wrap="wrap">
             <Box>
-              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Layer 2 · Prompts and layer 3 · Agent activity</Text>
-              <Heading id="timeline-heading" fontFamily="heading" fontSize="xl">Agent event timeline</Heading>
+              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Session · Prompt · Agent activity</Text>
+              <Heading id="timeline-heading" fontFamily="heading" fontSize="xl">Session timeline</Heading>
             </Box>
             <Badge colorPalette="gray" variant="subtle">
               {events.length} event{events.length === 1 ? '' : 's'}
             </Badge>
           </Flex>
           <Text mt="3" color="governance.muted" fontSize="sm">
-            Events are ordered by server receipt time within each parent group. Producer-reported
-            source time is shown separately.
+            One vertical log: the session, then each prompt, then the agent activity that belongs to
+            that prompt.
           </Text>
           <Text role="status" minH="5" mt="2" color="governance.muted" fontSize="xs">
             {pending
@@ -522,23 +574,48 @@ export function ActivityTracePage() {
                 : ''}
           </Text>
 
-          {tree.roots.length ? (
-            <Stack as="ol" aria-label="Activity events" gap="4" listStyle="none" mt="4" p="0" m="0">
+          <Box position="relative" mt="5" pl={{ base: '7', md: '12' }}>
+            <Box
+              position="absolute"
+              left={{ base: '3', md: '5' }}
+              top="2"
+              bottom="2"
+              w="2px"
+              bg="governance.line"
+            />
+            <Stack as="ol" aria-label="Session layers" gap="6" listStyle="none" p="0" m="0">
+              <Box as="li" position="relative" listStyle="none">
+                <Box
+                  position="absolute"
+                  left={{ base: '-18px', md: '-26px' }}
+                  top="7"
+                  w="4"
+                  h="4"
+                  borderRadius="full"
+                  bg="governance.ink"
+                  borderWidth="2px"
+                  borderColor="white"
+                />
+                <SessionLayer trace={trace} />
+              </Box>
               {tree.roots.map((node) => (
                 <EventCard
                   key={node.event.eventId}
                   node={node}
                   expanded={expanded}
                   onToggle={toggle}
+                  variant={node.event.kind === 'prompt' ? 'prompt' : 'agent'}
                 />
               ))}
             </Stack>
-          ) : (
-            <Box role="status" py="10" textAlign="center">
+          </Box>
+
+          {!tree.roots.length ? (
+            <Box role="status" py="6" textAlign="center">
               <Heading fontFamily="heading" fontSize="md">No activity reported</Heading>
               <Text mt="1" color="governance.muted" fontSize="sm">No events are available for this trace yet.</Text>
             </Box>
-          )}
+          ) : null}
 
           {tree.unavailable.length ? (
             <Box as="section" aria-label="Unavailable event details" mt="5" p="4" borderRadius="lg" bg="orange.50" color="orange.900">
@@ -562,6 +639,28 @@ export function ActivityTracePage() {
                 : nextCursor ? 'Load more events' : 'All events loaded'}
             </Button>
           ) : null}
+        </Box>
+      ) : null}
+
+      {trace && traceId ? <TraceUsagePanel traceId={traceId} /> : null}
+
+      {trace && approvals.length ? (
+        <Box as="section" aria-labelledby="approval-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+          <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Reported resolutions</Text>
+          <Heading id="approval-heading" fontFamily="heading" fontSize="xl" mb="4">Approval history</Heading>
+          <Stack as="ul" listStyle="none" gap="2" p="0" m="0">
+            {approvals.map((approval) => (
+              <Flex as="li" key={approval.eventId} align="center" justify="space-between" gap="3" flexWrap="wrap" p="3" borderRadius="md" bg="governance.canvas">
+                <Text fontFamily="mono" fontSize="sm">Approval {shortId(approval.eventId)}</Text>
+                <Badge colorPalette="orange" variant="subtle">{approval.metadata.state ?? 'Not reported'}</Badge>
+                <Text color="governance.muted" fontSize="sm">
+                  {approval.metadata.approvalId
+                    ? `ID ${shortId(approval.metadata.approvalId)}`
+                    : 'ID not reported'}
+                </Text>
+              </Flex>
+            ))}
+          </Stack>
         </Box>
       ) : null}
 
