@@ -71,6 +71,7 @@ interface ActivityEventBase {
   sourceAt: string | null;
   durationMs: number | null;
   identity: string | null;
+  content: Record<string, unknown> | null;
   raw?: Record<string, unknown>;
 }
 

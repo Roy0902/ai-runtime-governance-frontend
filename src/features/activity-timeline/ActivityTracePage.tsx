@@ -69,6 +69,89 @@ function displayValue(value: unknown): string {
   return String(value);
 }
 
+function layerName(kind: ActivityEvent['kind']): string {
+  switch (kind) {
+    case 'prompt':
+      return 'Prompt';
+    case 'guard':
+      return 'Guard decision';
+    case 'approval':
+      return 'Approval';
+    case 'model':
+      return 'Model call';
+    case 'tool':
+      return 'Tool call';
+    default:
+      return 'Agent activity';
+  }
+}
+
+function EventContent({ event }: { event: ActivityEvent }) {
+  const content = event.content;
+  if (!content) {
+    return null;
+  }
+  const blocks: Array<[string, string]> = [];
+  const push = (label: string, value: unknown) => {
+    if (value === null || value === undefined) {
+      return;
+    }
+    const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    if (text && text.trim().length) {
+      blocks.push([label, text]);
+    }
+  };
+
+  if (event.kind === 'prompt') {
+    push('Prompt', content.text);
+  } else if (event.kind === 'model') {
+    push('Model output', content.output);
+    push('Reasoning', content.reasoning);
+    const calls = Array.isArray(content.toolCalls) ? content.toolCalls : [];
+    calls.forEach((call, index) => {
+      if (call && typeof call === 'object') {
+        const value = call as Record<string, unknown>;
+        push(`Tool call ${index + 1} · ${String(value.name ?? 'unknown')}`, value.arguments ?? value);
+      }
+    });
+  } else if (event.kind === 'tool') {
+    push('Tool', content.name);
+    push('Arguments', content.arguments ?? content);
+  }
+
+  if (!blocks.length) {
+    push('Content', content);
+  }
+
+  return (
+    <Stack gap="2" mt="3">
+      {blocks.map(([label, text]) => (
+        <Box key={label}>
+          <Text color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">{label}</Text>
+          <Box
+            as="pre"
+            mt="1"
+            m="0"
+            p="3"
+            bg="governance.canvas"
+            borderWidth="1px"
+            borderColor="governance.line"
+            borderRadius="md"
+            fontFamily="mono"
+            fontSize="xs"
+            whiteSpace="pre-wrap"
+            wordBreak="break-word"
+            maxH="72"
+            overflowY="auto"
+          >
+            {text}
+          </Box>
+        </Box>
+      ))}
+    </Stack>
+  );
+}
+
 function RawJson({ value }: { value: unknown }) {
   return (
     <Box
@@ -219,6 +302,7 @@ function EventCard({
           <Flex justify="space-between" align="flex-start" gap="3" wrap="wrap">
             <HStack align="flex-start" gap="3">
               <Badge colorPalette={kindColor} variant="subtle">{event.kind}</Badge>
+              <Badge colorPalette="gray" variant="outline">{layerName(event.kind)}</Badge>
               <Box>
                 <Heading as="h3" fontFamily="heading" fontSize="md">{eventHeading(event)}</Heading>
                 <Text mt="1" color="governance.muted" fontSize="xs">{formatTime(event.receivedAt)}</Text>
@@ -236,6 +320,8 @@ function EventCard({
           {node.parentNotLoaded ? (
             <Text mt="3" color="orange.800" fontSize="sm">Parent event is not loaded in this page.</Text>
           ) : null}
+
+          <EventContent event={event} />
 
           <Button
             mt="3"
@@ -281,7 +367,7 @@ function EventCard({
               {event.kind === 'model' && event.usage ? (
                 <ModelStepUsage traceId={event.traceId} usage={event.usage} />
               ) : null}
-              {event.kind === 'tool' ? (
+              {event.kind === 'tool' && !event.content ? (
                 <Text gridColumn={{ md: '1 / -1' }} fontSize="sm" color="governance.muted">
                   Tool arguments and results are not reported by the hook contract.
                 </Text>
@@ -382,7 +468,14 @@ export function ActivityTracePage() {
         </Text>
       ) : null}
 
-      {trace ? <TraceSummaryPanel trace={trace} /> : null}
+      {trace ? (
+        <>
+          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+            Layer 1 · Session
+          </Text>
+          <TraceSummaryPanel trace={trace} />
+        </>
+      ) : null}
 
       {trace && traceId ? <TraceUsagePanel traceId={traceId} /> : null}
 
@@ -410,7 +503,7 @@ export function ActivityTracePage() {
         <Box as="section" aria-labelledby="timeline-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
           <Flex justify="space-between" align="flex-end" gap="4" wrap="wrap">
             <Box>
-              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Receipt order · sibling events</Text>
+              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Layer 2 · Prompts and layer 3 · Agent activity</Text>
               <Heading id="timeline-heading" fontFamily="heading" fontSize="xl">Agent event timeline</Heading>
             </Box>
             <Badge colorPalette="gray" variant="subtle">

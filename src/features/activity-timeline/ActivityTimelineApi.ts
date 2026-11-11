@@ -44,6 +44,7 @@ interface ActivityEventDto {
   identity: string | null;
   metadata: EventMetadataDto | null;
   usage: ModelUsageSummary | null;
+  content?: Record<string, unknown> | null;
   tombstone?: boolean;
 }
 
@@ -68,6 +69,7 @@ function toActivityEvent(dto: ActivityEventDto): ActivityTimelineItem {
     sourceAt: dto.sourceAt,
     durationMs: dto.durationMs,
     identity: dto.identity,
+    content: dto.content ?? null,
     raw: dto as unknown as Record<string, unknown>,
   };
 
