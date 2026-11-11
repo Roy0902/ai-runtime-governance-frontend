@@ -2,6 +2,7 @@ export interface GatewayKeySummary {
   id: string;
   name: string;
   tokenPrefix: string;
+  groupId: string | null;
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;

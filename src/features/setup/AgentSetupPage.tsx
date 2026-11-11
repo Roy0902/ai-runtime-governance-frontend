@@ -211,6 +211,7 @@ export function AgentSetupPage() {
       <Box p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
         <Heading fontFamily="heading" fontSize="xl">{t('setup.providersTitle')}</Heading>
         <Text mt="1" mb="5" color="governance.muted" fontSize="sm">{t('setup.providersDescription')}</Text>
+        {loading ? <Text role="status" mb="4" color="governance.muted" fontSize="sm">Loading tracing providers…</Text> : null}
 
         <Stack gap="5">
           {PROVIDERS.map((provider) => {
