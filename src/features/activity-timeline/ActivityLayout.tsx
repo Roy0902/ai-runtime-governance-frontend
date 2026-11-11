@@ -75,18 +75,29 @@ export function ActivityLayout() {
         borderRightWidth={{ lg: '1px' }}
         borderBottomWidth={{ base: '1px', lg: '0' }}
         borderColor="governance.line"
-        bg="white"
+        bg="governance.canvas"
         px={{ base: '4', lg: '5' }}
         py={{ base: '5', lg: '6' }}
       >
-        <Flex justify="space-between" align="center" gap="3" mb="4">
-          <Box>
-            <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
-              {t('activity.recentActivity')}
-            </Text>
-            <Heading fontFamily="heading" fontSize="lg">{t('activity.traces')}</Heading>
-          </Box>
-          <Text color="governance.muted" fontSize="xs">{t('activity.shown', { count: items.length })}</Text>
+        <Flex
+          justify="space-between"
+          align="center"
+          gap="3"
+          mb="5"
+          pb="4"
+          borderBottomWidth="1px"
+          borderColor="governance.line"
+        >
+          <HStack align="center" gap="3">
+            <Box w="1" h="10" borderRadius="full" bg="governance.primary" />
+            <Box>
+              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+                {t('activity.recentActivity')}
+              </Text>
+              <Heading fontFamily="heading" fontSize="lg">Sessions</Heading>
+            </Box>
+          </HStack>
+          <Badge colorPalette="green" variant="subtle">{items.length}</Badge>
         </Flex>
 
         {loading ? <Text role="status" color="governance.muted" fontSize="sm">{t('activity.loadingActivity')}</Text> : null}
@@ -129,11 +140,13 @@ export function ActivityLayout() {
                     <Link to={`/activity/${trace.traceId}`} aria-current={active ? 'page' : undefined}>
                       <Box
                         p="3"
+                        bg="white"
                         borderWidth="1px"
-                        borderLeftWidth={active ? '3px' : '1px'}
                         borderColor={active ? 'governance.primary' : 'governance.line'}
+                        borderLeftWidth={active ? '4px' : '3px'}
+                        borderLeftColor={active ? 'governance.primary' : 'transparent'}
                         borderRadius="lg"
-                        bg={active ? 'governance.canvas' : 'white'}
+                        boxShadow={active ? 'sm' : 'none'}
                         transition="border-color 120ms ease, box-shadow 120ms ease"
                         _hover={{ borderColor: 'governance.primary', boxShadow: 'sm' }}
                       >
