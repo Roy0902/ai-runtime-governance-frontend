@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Badge, Box, Button, Container, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
+import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { Badge, Box, Button, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import { useAuthentication } from '../../AuthenticationContext';
@@ -15,7 +15,7 @@ import {
 } from './ActivityTimelinePresentation';
 import type { ActivityEvent, ActivityTimelineItem, ModelUsageSummary, TraceDetail } from './ActivityTimelineTypes';
 import { TraceUsagePanel } from './TraceUsagePanel';
-import { useTraceDetail } from './useActivityTimeline';
+import type { TraceDetailState } from './useActivityTimeline';
 
 function failureCopy(error: unknown): { message: string; signIn: boolean } {
   if (error instanceof ApiError) {
@@ -83,14 +83,6 @@ function layerName(kind: ActivityEvent['kind']): string {
     default:
       return 'Agent activity';
   }
-}
-
-function promptPreview(event: ActivityEvent): string {
-  const text = event.content?.text;
-  if (typeof text === 'string' && text.trim().length) {
-    return text;
-  }
-  return eventHeading(event);
 }
 
 function EventContent({ event }: { event: ActivityEvent }) {
@@ -498,6 +490,10 @@ function TraceRawPanel({ trace, events }: { trace: TraceDetail; events: Activity
 
 export function ActivityTracePage() {
   const { traceId } = useParams<{ traceId: string }>();
+  const { detail, selectedPrompt } = useOutletContext<{
+    detail: TraceDetailState;
+    selectedPrompt: EventNode | null;
+  }>();
   const {
     trace,
     events,
@@ -512,39 +508,16 @@ export function ActivityTracePage() {
     toggle,
     refresh,
     loadMore,
-  } = useTraceDetail(traceId);
+  } = detail;
   const failure = error ? failureCopy(error) : null;
-  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
-  const promptRoots = tree.roots.filter((node) => node.event.kind === 'prompt');
   const agentRoots = tree.roots.filter((node) => node.event.kind !== 'prompt');
-  const selectedPrompt =
-    promptRoots.find((node) => node.event.eventId === selectedPromptId) ?? promptRoots[0] ?? null;
   const approvals = events.filter(
     (event): event is Extract<ActivityEvent, { kind: 'approval' }> =>
       !('tombstone' in event) && event.kind === 'approval',
   );
 
   return (
-    <Container as="main" maxW="1440px" py={{ base: '6', md: '10' }} px={{ base: '4', md: '8' }}>
-      <Flex justify="space-between" align="flex-end" gap="6" wrap="wrap" mb="6">
-        <div>
-          <Text mb="2" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Observability</Text>
-          <Heading fontFamily="heading" fontSize={{ base: '3xl', md: '4xl' }}>Activity</Heading>
-          <Text mt="2" maxW="44rem" color="governance.muted">
-            Inspect reported agent, model, tool, guard, and approval activity without exposing payloads.
-          </Text>
-        </div>
-        <HStack gap="2">
-          <Badge colorPalette={live ? 'green' : 'gray'} variant="subtle">
-            {live ? 'Live' : 'Manual refresh'}
-          </Badge>
-          <Button asChild size="sm" variant="outline"><Link to="/activity">Back to traces</Link></Button>
-          <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
-            Refresh
-          </Button>
-        </HStack>
-      </Flex>
-
+    <Box>
       {loading && !trace ? <Text role="status" color="governance.muted">Loading activity…</Text> : null}
 
       {failure ? (
@@ -571,13 +544,21 @@ export function ActivityTracePage() {
               <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Session · Prompt · Agent activity</Text>
               <Heading id="timeline-heading" fontFamily="heading" fontSize="xl">Session timeline</Heading>
             </Box>
-            <Badge colorPalette="gray" variant="subtle">
-              {events.length} event{events.length === 1 ? '' : 's'}
-            </Badge>
+            <HStack gap="2" align="center">
+              <Badge colorPalette={live ? 'green' : 'gray'} variant="subtle">
+                {live ? 'Live' : 'Manual refresh'}
+              </Badge>
+              <Badge colorPalette="gray" variant="subtle">
+                {events.length} event{events.length === 1 ? '' : 's'}
+              </Badge>
+              <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
+                Refresh
+              </Button>
+            </HStack>
           </Flex>
           <Text mt="3" color="governance.muted" fontSize="sm">
-            Select a prompt to inspect its guard, model and tool activity. The session stays selected
-            in the left rail while you move between prompts.
+            Select a prompt to inspect its guard, model and tool activity. The prompt selector stays
+            beside the session list while you move between prompts.
           </Text>
           <Text role="status" minH="5" mt="2" color="governance.muted" fontSize="xs">
             {pending
@@ -589,111 +570,42 @@ export function ActivityTracePage() {
 
           <SessionLayer trace={trace} />
 
-          <Grid
-            mt="5"
-            templateColumns={{ base: '1fr', lg: '20rem minmax(0, 1fr)' }}
-            gap={{ base: '5', lg: '6' }}
-            alignItems="start"
-          >
+          <Box position="relative" mt="5" pl={{ base: '7', md: '10' }}>
             <Box
-              as="aside"
-              aria-label="Prompt selection"
-              p="4"
-              borderWidth="1px"
-              borderColor="governance.line"
-              borderRadius="lg"
-              bg="governance.canvas"
-            >
-              <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
-                Prompts
-              </Text>
-              <Heading fontFamily="heading" fontSize="lg">Select a prompt</Heading>
-              <Stack mt="4" gap="2">
-                {promptRoots.map((node, index) => {
-                  const selected = selectedPrompt?.event.eventId === node.event.eventId;
-                  return (
-                    <Button
-                      key={node.event.eventId}
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setSelectedPromptId(node.event.eventId)}
-                      aria-pressed={selected}
-                      h="auto"
-                      p="3"
-                      justifyContent="flex-start"
-                      textAlign="left"
-                      whiteSpace="normal"
-                      borderWidth="1px"
-                      borderColor={selected ? 'blue.400' : 'governance.line'}
-                      bg={selected ? 'blue.50' : 'white'}
-                    >
-                      <Box w="full">
-                        <Flex justify="space-between" align="center" gap="2">
-                          <Text fontSize="sm" fontWeight="bold">Prompt {index + 1}</Text>
-                          <Badge colorPalette="gray" variant="subtle">
-                            {node.children.length} event{node.children.length === 1 ? '' : 's'}
-                          </Badge>
-                        </Flex>
-                        <Text mt="1" color="governance.muted" fontSize="xs">
-                          {formatTime(node.event.receivedAt)}
-                        </Text>
-                        <Text
-                          mt="2"
-                          fontSize="sm"
-                          overflow="hidden"
-                          css={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
-                        >
-                          {promptPreview(node.event)}
-                        </Text>
-                        <HStack mt="2" gap="2" wrap="wrap">
-                          <Badge colorPalette="blue" variant="outline">
-                            {outcomeLabel(node.event.kind === 'prompt' ? node.event.metadata.guardOutcome : null)}
-                          </Badge>
-                        </HStack>
-                      </Box>
-                    </Button>
-                  );
-                })}
-                {!promptRoots.length ? (
-                  <Text color="governance.muted" fontSize="sm">
-                    No prompts have been recorded for this session.
-                  </Text>
-                ) : null}
-              </Stack>
-            </Box>
-
-            <Box>
-              {selectedPrompt ? (
-                <Box position="relative" pl={{ base: '7', md: '10' }}>
-                  <Box
-                    position="absolute"
-                    left={{ base: '3', md: '5' }}
-                    top="2"
-                    bottom="2"
-                    w="2px"
-                    bg="governance.line"
+              position="absolute"
+              left={{ base: '3', md: '5' }}
+              top="2"
+              bottom="2"
+              w="2px"
+              bg="governance.line"
+            />
+            {selectedPrompt ? (
+              <Stack as="ol" aria-label="Selected prompt activity" gap="5" listStyle="none" p="0" m="0">
+                <EventCard
+                  node={selectedPrompt}
+                  expanded={expanded}
+                  onToggle={toggle}
+                  variant="prompt"
+                />
+                {agentRoots.map((node) => (
+                  <EventCard
+                    key={node.event.eventId}
+                    node={node}
+                    expanded={expanded}
+                    onToggle={toggle}
+                    variant="agent"
                   />
-                  <Stack as="ol" aria-label="Selected prompt activity" gap="5" listStyle="none" p="0" m="0">
-                    <EventCard
-                      node={selectedPrompt}
-                      expanded={expanded}
-                      onToggle={toggle}
-                      variant="prompt"
-                    />
-                    {agentRoots.map((node) => (
-                      <EventCard
-                        key={node.event.eventId}
-                        node={node}
-                        expanded={expanded}
-                        onToggle={toggle}
-                        variant="agent"
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-              ) : null}
-            </Box>
-          </Grid>
+                ))}
+              </Stack>
+            ) : (
+              <Box role="status" py="8" textAlign="center">
+                <Heading fontFamily="heading" fontSize="md">Select a prompt</Heading>
+                <Text mt="1" color="governance.muted" fontSize="sm">
+                  Choose a prompt in the middle pane to see its guard, model and tool activity.
+                </Text>
+              </Box>
+            )}
+          </Box>
 
           {tree.unavailable.length ? (
             <Box as="section" aria-label="Unavailable event details" mt="5" p="4" borderRadius="lg" bg="orange.50" color="orange.900">
@@ -743,6 +655,6 @@ export function ActivityTracePage() {
       ) : null}
 
       {trace ? <TraceRawPanel trace={trace} events={events} /> : null}
-    </Container>
+    </Box>
   );
 }

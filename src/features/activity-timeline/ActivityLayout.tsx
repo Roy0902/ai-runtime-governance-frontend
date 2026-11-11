@@ -1,9 +1,11 @@
-import { Box, Button, Container, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
-import { Link, Outlet, useLocation, useOutletContext } from 'react-router-dom';
+import { useState } from 'react';
+import { Badge, Box, Button, Container, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
+import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { ApiError } from '../../ApplicationApiClient';
 import { t } from '../../i18n';
-import { formatTime, outcomeLabel, StatusBadge } from './ActivityTimelinePresentation';
-import { useTraceList } from './useActivityTimeline';
+import { formatTime, outcomeLabel, promptPreview, StatusBadge } from './ActivityTimelinePresentation';
+import type { EventNode } from './ActivityTimelineModel';
+import { useTraceDetail, useTraceList } from './useActivityTimeline';
 
 function activityErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -45,7 +47,13 @@ export function ActivityEmptyState() {
 
 export function ActivityLayout() {
   const { pathname } = useLocation();
+  const { traceId } = useParams<{ traceId?: string }>();
   const { items, nextCursor, loading, pending, error, refresh, loadMore } = useTraceList();
+  const detail = useTraceDetail(traceId);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const promptRoots = detail.tree.roots.filter((node) => node.event.kind === 'prompt');
+  const selectedPrompt =
+    promptRoots.find((node) => node.event.eventId === selectedPromptId) ?? promptRoots[0] ?? null;
   const apiError = error instanceof ApiError ? error : null;
   const signInRequired = apiError?.status === 401;
   const notFound = apiError?.status === 404;
@@ -69,7 +77,7 @@ export function ActivityLayout() {
       </Flex>
 
       <Grid
-        templateColumns={{ base: '1fr', lg: '22rem minmax(0, 1fr)' }}
+        templateColumns={{ base: '1fr', lg: traceId ? '22rem 20rem minmax(0, 1fr)' : '22rem minmax(0, 1fr)' }}
         gap={{ base: '6', lg: '8' }}
         alignItems="start"
       >
@@ -166,8 +174,91 @@ export function ActivityLayout() {
           </Box>
         </Box>
 
+        {traceId ? (
+          <Box as="aside" aria-label="Prompt selection" position={{ lg: 'sticky' }} top={{ lg: '6' }}>
+            <Box
+              p="4"
+              borderWidth="1px"
+              borderColor="governance.line"
+              borderRadius="xl"
+              bg="white"
+              boxShadow="0 18px 52px rgba(23,43,52,0.06)"
+            >
+              <Flex justify="space-between" align="center" gap="3" mb="4">
+                <Box>
+                  <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+                    Prompts
+                  </Text>
+                  <Heading fontFamily="heading" fontSize="lg">Select a prompt</Heading>
+                </Box>
+                <Text color="governance.muted" fontSize="xs">{promptRoots.length}</Text>
+              </Flex>
+
+              {detail.loading && !detail.trace ? (
+                <Text role="status" color="governance.muted" fontSize="sm">Loading prompts…</Text>
+              ) : null}
+
+              <Stack as="ul" aria-label="Prompts" listStyle="none" gap="2" p="0" m="0" maxH={{ lg: 'calc(100vh - 20rem)' }} overflowY={{ lg: 'auto' }}>
+                {promptRoots.map((node: EventNode, index: number) => {
+                  const selected = selectedPrompt?.event.eventId === node.event.eventId;
+                  return (
+                    <Box as="li" key={node.event.eventId}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setSelectedPromptId(node.event.eventId)}
+                        aria-pressed={selected}
+                        h="auto"
+                        w="full"
+                        p="3"
+                        justifyContent="flex-start"
+                        textAlign="left"
+                        whiteSpace="normal"
+                        borderWidth="1px"
+                        borderColor={selected ? 'blue.400' : 'governance.line'}
+                        bg={selected ? 'blue.50' : 'white'}
+                        _hover={{ borderColor: 'governance.primary' }}
+                      >
+                        <Box w="full">
+                          <Flex justify="space-between" align="center" gap="2">
+                            <Text fontSize="sm" fontWeight="bold">Prompt {index + 1}</Text>
+                            <Badge colorPalette="gray" variant="subtle">
+                              {node.children.length} event{node.children.length === 1 ? '' : 's'}
+                            </Badge>
+                          </Flex>
+                          <Text mt="1" color="governance.muted" fontSize="xs">{formatTime(node.event.receivedAt)}</Text>
+                          <Text
+                            mt="2"
+                            fontSize="sm"
+                            overflow="hidden"
+                            css={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                          >
+                            {promptPreview(node.event)}
+                          </Text>
+                          <HStack mt="2" gap="2" flexWrap="wrap">
+                            <Badge colorPalette="blue" variant="outline">
+                              {outcomeLabel(node.event.kind === 'prompt' ? node.event.metadata.guardOutcome : null)}
+                            </Badge>
+                          </HStack>
+                        </Box>
+                      </Button>
+                    </Box>
+                  );
+                })}
+              </Stack>
+
+              {!detail.loading && traceId && promptRoots.length === 0 ? (
+                <Box role="status" py="6" textAlign="center">
+                  <Text fontWeight="semibold" fontSize="sm">No prompts recorded</Text>
+                  <Text mt="1" color="governance.muted" fontSize="xs">Prompt activity will appear here.</Text>
+                </Box>
+              ) : null}
+            </Box>
+          </Box>
+        ) : null}
+
         <Box as="section" minW="0">
-          <Outlet context={{ hasTraces: items.length > 0 }} />
+          <Outlet context={{ hasTraces: items.length > 0, detail, selectedPrompt, setSelectedPromptId }} />
         </Box>
       </Grid>
     </Container>

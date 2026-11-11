@@ -202,14 +202,20 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
 
   const loadFirst = useCallback(async () => {
     const current = ++generation.current;
+    if (!traceId) {
+      loadingRef.current = false;
+      setLoading(false);
+      setTrace(null);
+      setEvents([]);
+      setNextCursor(null);
+      setError(null);
+      return;
+    }
     setLoading(true);
     loadingRef.current = true;
     setError(null);
     setLastLoaded(null);
     try {
-      if (!traceId) {
-        throw new Error('Missing trace identity');
-      }
       const [nextTrace, page] = await Promise.all([
         fetchTrace(traceId),
         fetchEventPage(traceId),

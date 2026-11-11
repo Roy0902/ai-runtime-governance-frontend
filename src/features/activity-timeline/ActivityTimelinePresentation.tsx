@@ -1,7 +1,15 @@
-import type { GuardOutcome, TraceDetail } from './ActivityTimelineTypes';
+import type { ActivityEvent, GuardOutcome, TraceDetail } from './ActivityTimelineTypes';
 import { formatDateTime } from '../../format/date';
 import { t } from '../../i18n';
 import { Badge, Box, Flex, Grid, Heading, HStack, Text } from '@chakra-ui/react';
+
+export function promptPreview(event: ActivityEvent): string {
+  const text = event.content?.text;
+  if (typeof text === 'string' && text.trim().length) {
+    return text;
+  }
+  return event.kind === 'prompt' ? 'Prompt' : event.kind;
+}
 
 export function formatTime(value: string | null): string {
   return formatDateTime(value, t('common.notReported'), 'utc');
