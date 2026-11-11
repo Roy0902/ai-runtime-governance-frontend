@@ -195,16 +195,20 @@ export function ActivityLayout() {
         <Grid
           templateColumns={{ base: '1fr', lg: traceId ? '19rem minmax(0, 1fr)' : '1fr' }}
           gap={{ base: '6', lg: '8' }}
-          alignItems="start"
+          alignItems="stretch"
+          h={{ base: 'auto', lg: traceId ? 'calc(100vh - 18rem)' : 'auto' }}
         >
           {traceId ? (
-            <Box as="aside" aria-label="Prompt selection" position={{ lg: 'sticky' }} top={{ lg: '6' }}>
+            <Box as="aside" aria-label="Prompt selection" h={{ base: 'auto', lg: 'full' }} minH="0">
               <Box
                 p="4"
                 borderWidth="1px"
                 borderColor="governance.line"
                 borderRadius="xl"
                 bg="white"
+                h={{ base: 'auto', lg: 'full' }}
+                display="flex"
+                flexDirection="column"
               >
                 <Flex justify="space-between" align="center" gap="3" mb="4">
                   <Box>
@@ -220,7 +224,17 @@ export function ActivityLayout() {
                   <Text role="status" color="governance.muted" fontSize="sm">Loading prompts…</Text>
                 ) : null}
 
-                <Stack as="ul" aria-label="Prompts" listStyle="none" gap="2" p="0" m="0">
+                <Stack
+                  as="ul"
+                  aria-label="Prompts"
+                  listStyle="none"
+                  gap="2"
+                  p="0"
+                  m="0"
+                  flex="1"
+                  minH="0"
+                  overflowY={{ lg: 'auto' }}
+                >
                   {promptRoots.map((node: EventNode, index: number) => {
                     const selected = selectedPrompt?.event.eventId === node.event.eventId;
                     return (
@@ -279,7 +293,13 @@ export function ActivityLayout() {
             </Box>
           ) : null}
 
-          <Box as="section" minW="0">
+          <Box
+            as="section"
+            minW="0"
+            h={{ base: 'auto', lg: 'calc(100vh - 18rem)' }}
+            minH="0"
+            overflowY={{ lg: 'auto' }}
+          >
             <Outlet context={{ hasTraces: items.length > 0, detail, selectedPrompt, setSelectedPromptId }} />
           </Box>
         </Grid>

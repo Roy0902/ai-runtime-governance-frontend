@@ -538,7 +538,7 @@ export function ActivityTracePage() {
       ) : null}
 
       {trace ? (
-        <Box as="section" aria-labelledby="timeline-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
+        <Box as="section" aria-labelledby="timeline-heading" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
           <Flex justify="space-between" align="flex-end" gap="4" wrap="wrap">
             <Box>
               <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">Session · Prompt · Agent activity</Text>
