@@ -94,7 +94,7 @@ export function ActivityLayout() {
               <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
                 {t('activity.recentActivity')}
               </Text>
-              <Heading fontFamily="heading" fontSize="lg">Sessions</Heading>
+              <Heading fontFamily="heading" fontSize="lg">{t('activity.sessions')}</Heading>
             </Box>
           </HStack>
           <Badge colorPalette="green" variant="subtle">{items.length}</Badge>
@@ -200,7 +200,7 @@ export function ActivityLayout() {
           h={{ base: 'auto', lg: traceId ? 'calc(100vh - 18rem)' : 'auto' }}
         >
           {traceId ? (
-            <Box as="aside" aria-label="Prompt selection" h={{ base: 'auto', lg: 'full' }} minH="0">
+            <Box as="aside" aria-label={t('activity.promptSelectionAria')} h={{ base: 'auto', lg: 'full' }} minH="0">
               <Box
                 p="4"
                 borderWidth="1px"
@@ -214,20 +214,20 @@ export function ActivityLayout() {
                 <Flex justify="space-between" align="center" gap="3" mb="4">
                   <Box>
                     <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">
-                      Prompts
+                      {t('activity.prompts')}
                     </Text>
-                    <Heading fontFamily="heading" fontSize="lg">Select a prompt</Heading>
+                    <Heading fontFamily="heading" fontSize="lg">{t('activity.selectPrompt')}</Heading>
                   </Box>
                   <Text color="governance.muted" fontSize="xs">{promptRoots.length}</Text>
                 </Flex>
 
                 {detail.loading && !detail.trace ? (
-                  <Text role="status" color="governance.muted" fontSize="sm">Loading prompts…</Text>
+                  <Text role="status" color="governance.muted" fontSize="sm">{t('activity.loadingPrompts')}</Text>
                 ) : null}
 
                 <Stack
                   as="ul"
-                  aria-label="Prompts"
+                  aria-label={t('activity.prompts')}
                   listStyle="none"
                   gap="2"
                   p="0"
@@ -258,9 +258,14 @@ export function ActivityLayout() {
                         >
                           <Box w="full">
                             <Flex justify="space-between" align="center" gap="2">
-                              <Text fontSize="sm" fontWeight="bold">Prompt {index + 1}</Text>
+                              <Text fontSize="sm" fontWeight="bold">
+                                {t('activity.promptNumber', { number: index + 1 })}
+                              </Text>
                               <Badge colorPalette="gray" variant="subtle">
-                                {node.children.length} event{node.children.length === 1 ? '' : 's'}
+                                {t(
+                                  node.children.length === 1 ? 'activity.eventCountOne' : 'activity.eventCountOther',
+                                  { count: node.children.length },
+                                )}
                               </Badge>
                             </Flex>
                             <Text mt="1" color="governance.muted" fontSize="xs">{formatTime(node.event.receivedAt)}</Text>
@@ -286,8 +291,8 @@ export function ActivityLayout() {
 
                 {!detail.loading && traceId && promptRoots.length === 0 ? (
                   <Box role="status" py="6" textAlign="center">
-                    <Text fontWeight="semibold" fontSize="sm">No prompts recorded</Text>
-                    <Text mt="1" color="governance.muted" fontSize="xs">Prompt activity will appear here.</Text>
+                    <Text fontWeight="semibold" fontSize="sm">{t('activity.noPromptsRecorded')}</Text>
+                    <Text mt="1" color="governance.muted" fontSize="xs">{t('activity.promptActivityWillAppear')}</Text>
                   </Box>
                 ) : null}
               </Box>

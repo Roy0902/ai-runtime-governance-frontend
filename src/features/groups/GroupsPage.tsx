@@ -288,7 +288,7 @@ export function GroupsPage() {
               aria-label={t('groups.inviteCode')}
               value={joinCode}
               onChange={(event) => setJoinCode(event.target.value)}
-              placeholder="arg_join_..."
+              placeholder={t('groups.inviteCodePlaceholder')}
               maxW="22rem"
             />
             <Button colorPalette="green" disabled={!joinCode.trim() || busy === 'join'} onClick={() => { void joinGroup(); }}>
@@ -429,8 +429,8 @@ export function GroupsPage() {
                           }))}
                           style={{ padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #d2d6db' }}
                         >
-                          <option value="LANGFUSE">Langfuse</option>
-                          <option value="LANGSMITH">LangSmith</option>
+                          <option value="LANGFUSE">{t('setup.langfuse')}</option>
+                          <option value="LANGSMITH">{t('setup.langsmith')}</option>
                         </select>
                       </Field.Root>
                       <Field.Root>
@@ -443,7 +443,7 @@ export function GroupsPage() {
                             ...current,
                             [group.id]: { ...form, accessKey: event.target.value },
                           }))}
-                          placeholder="pk-lf-..."
+                          placeholder={t('groups.accessKeyPlaceholder')}
                         />
                       </Field.Root>
                       <Field.Root>

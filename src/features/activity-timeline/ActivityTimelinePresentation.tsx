@@ -8,15 +8,32 @@ export function promptPreview(event: ActivityEvent): string {
   if (typeof text === 'string' && text.trim().length) {
     return text;
   }
-  return event.kind === 'prompt' ? 'Prompt' : event.kind;
+  return event.kind === 'prompt' ? t('activity.prompt') : statusLabel(event.kind);
 }
 
 export function formatTime(value: string | null): string {
   return formatDateTime(value, t('common.notReported'), 'utc');
 }
 
+function capitalize(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
 export function statusLabel(value: string | null): string {
-  return value ? value.replaceAll('_', ' ') : t('common.notReported');
+  return value ? capitalize(value.replaceAll('_', ' ')) : t('common.notReported');
+}
+
+export function coverageLabel(value: string): string {
+  switch (value) {
+    case 'input':
+      return t('activity.coverageInput');
+    case 'response':
+      return t('activity.coverageResponse');
+    case 'tools':
+      return t('activity.coverageTools');
+    default:
+      return statusLabel(value);
+  }
 }
 
 export function shortId(value: string): string {
@@ -24,7 +41,7 @@ export function shortId(value: string): string {
 }
 
 export function outcomeLabel(value: GuardOutcome | null): string {
-  return value ? value.replaceAll('_', ' ') : t('activity.noGuardOutcome');
+  return value ? capitalize(value.replaceAll('_', ' ')) : t('activity.noGuardOutcome');
 }
 
 export function StatusBadge({ value, label }: { value: string | null; label?: string }) {
@@ -79,7 +96,7 @@ export function TraceSummaryPanel({ trace }: { trace: TraceDetail }) {
         <HStack gap="2" flexWrap="wrap">
           {Object.entries(trace.coverage).map(([label, value]) => (
             <Badge key={label} colorPalette={value === 'observed' ? 'green' : 'gray'} variant="outline">
-              {label}: {statusLabel(value)}
+              {coverageLabel(label)}: {statusLabel(value)}
             </Badge>
           ))}
         </HStack>

@@ -62,7 +62,7 @@ export function ApplicationHeader({
                   letterSpacing="0.06em"
                   aria-hidden="true"
                 >
-                  AR
+                  {t('common.brandMark')}
                 </Flex>
                 <Box>
                   <Text fontFamily="heading" fontSize="sm" fontWeight="700" lineHeight="short">

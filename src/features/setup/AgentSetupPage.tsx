@@ -211,7 +211,7 @@ export function AgentSetupPage() {
       <Box p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
         <Heading fontFamily="heading" fontSize="xl">{t('setup.providersTitle')}</Heading>
         <Text mt="1" mb="5" color="governance.muted" fontSize="sm">{t('setup.providersDescription')}</Text>
-        {loading ? <Text role="status" mb="4" color="governance.muted" fontSize="sm">Loading tracing providers…</Text> : null}
+        {loading ? <Text role="status" mb="4" color="governance.muted" fontSize="sm">{t('setup.loadingProviders')}</Text> : null}
 
         <Stack gap="5">
           {PROVIDERS.map((provider) => {
@@ -244,7 +244,7 @@ export function AgentSetupPage() {
                         value={form.accessKey}
                         maxLength={512}
                         onChange={(event) => updateForm(provider, 'accessKey', event.target.value)}
-                        placeholder="pk-lf-..."
+                        placeholder={t('setup.accessKeyPlaceholder')}
                       />
                     </Field.Root>
                   ) : (
@@ -262,7 +262,11 @@ export function AgentSetupPage() {
                       value={form.secretKey}
                       maxLength={4096}
                       onChange={(event) => updateForm(provider, 'secretKey', event.target.value)}
-                      placeholder={provider === 'LANGSMITH' ? 'lsv2_...' : 'sk-lf-...'}
+                      placeholder={
+                        provider === 'LANGSMITH'
+                          ? t('setup.secretKeyPlaceholderLangSmith')
+                          : t('setup.secretKeyPlaceholderLangfuse')
+                      }
                     />
                   </Field.Root>
                   <Field.Root>
