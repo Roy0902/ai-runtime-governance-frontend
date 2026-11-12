@@ -21,8 +21,13 @@ const config = defineConfig({
           canvas: { value: '#f1f4f1' },
           surface: { value: '#ffffff' },
           ink: { value: '#172b34' },
-          muted: { value: '#62747a' },
+          muted: { value: '#4b5e64' },
+          placeholder: { value: '#586b71' },
           line: { value: '#d9e2df' },
+          controlLine: { value: '#7e928c' },
+          disabledSurface: { value: '#e4ebe8' },
+          disabledInk: { value: '#3f5359' },
+          disabledLine: { value: '#b7c6c1' },
           primary: { value: '#146b59' },
           primaryHover: { value: '#0f5145' },
           accent: { value: '#bf563e' },
@@ -54,6 +59,31 @@ const config = defineConfig({
     a: {
       color: '{colors.governance.primary}',
       textDecoration: 'none',
+    },
+    'a:hover': {
+      textDecoration: 'underline',
+    },
+    '::placeholder': {
+      color: '{colors.governance.placeholder} !important',
+      opacity: '1 !important',
+    },
+    'input:not(:focus), textarea:not(:focus), select:not(:focus)': {
+      borderColor: '{colors.governance.controlLine} !important',
+    },
+    'input:disabled, textarea:disabled, select:disabled': {
+      opacity: '1 !important',
+      color: '{colors.governance.muted} !important',
+      backgroundColor: '{colors.governance.disabledSurface} !important',
+      borderColor: '{colors.governance.disabledLine} !important',
+      cursor: 'not-allowed',
+    },
+    'button:disabled': {
+      opacity: '1 !important',
+      color: '{colors.governance.disabledInk} !important',
+      backgroundColor: '{colors.governance.disabledSurface} !important',
+      borderColor: '{colors.governance.disabledLine} !important',
+      boxShadow: 'none !important',
+      cursor: 'not-allowed',
     },
     '*, *::before, *::after': {
       boxSizing: 'border-box',
