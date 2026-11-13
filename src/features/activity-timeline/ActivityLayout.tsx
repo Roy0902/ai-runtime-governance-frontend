@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Badge, Box, Button, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { ApiError } from '../../ApplicationApiClient';
+import { LoadMoreButton } from '../../components/ui/LoadMoreButton';
 import { t } from '../../i18n';
 import { formatTime, outcomeLabel, promptPreview, StatusBadge } from './ActivityTimelinePresentation';
 import type { EventNode } from './ActivityTimelineModel';
@@ -58,7 +59,6 @@ export function ActivityLayout() {
   const { items, nextCursor, loading, pending, error, refresh, loadMore } = useTraceList();
   const detail = useTraceDetail(traceId);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const detailScrollRef = useRef<HTMLElement | null>(null);
   const promptRoots = detail.tree.roots.filter((node) => node.event.kind === 'prompt');
 
@@ -77,22 +77,6 @@ export function ActivityLayout() {
     }
   };
 
-  useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node || !nextCursor) {
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          loadMore();
-        }
-      },
-      { rootMargin: '160px 0px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [nextCursor, loadMore]);
   const selectedPrompt =
     promptRoots.find((node) => node.event.eventId === selectedPromptId)
     ?? promptRoots[promptRoots.length - 1]
@@ -220,13 +204,13 @@ export function ActivityLayout() {
           </Stack>
         ) : null}
 
-        {nextCursor ? <Box ref={sentinelRef} h="1px" aria-hidden="true" /> : null}
-
-        {nextCursor ? (
-          <Button mt="4" size="sm" variant="outline" onClick={loadMore} disabled={pending}>
-            {pending ? t('activity.loadingMore') : t('activity.loadMoreTraces')}
-          </Button>
-        ) : null}
+        <LoadMoreButton
+          hasMore={nextCursor !== null}
+          loading={pending}
+          label={t('activity.loadMoreTraces')}
+          loadingLabel={t('activity.loadingMore')}
+          onClick={loadMore}
+        />
       </Box>
 
       <Box flex="1" minW="0" px={{ base: '4', md: '8' }} py={{ base: '6', md: '10' }}>
@@ -340,6 +324,14 @@ export function ActivityLayout() {
                     );
                   })}
                 </Stack>
+
+                <LoadMoreButton
+                  hasMore={detail.nextCursor !== null}
+                  loading={detail.pending}
+                  label={t('activity.loadMorePrompts')}
+                  loadingLabel={t('activity.loadingMore')}
+                  onClick={detail.loadMore}
+                />
 
                 {!detail.loading && traceId && promptRoots.length === 0 ? (
                   <Box role="status" py="6" textAlign="center">

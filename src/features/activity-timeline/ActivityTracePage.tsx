@@ -1,15 +1,26 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import { Badge, Box, Button, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  MessageSquare,
+  ShieldCheck,
+  Sparkles,
+  UserCheck,
+  Wrench,
+} from 'lucide-react';
 import { ApiError } from '../../ApplicationApiClient';
 import { useAuthentication } from '../../AuthenticationContext';
 import type { ObservationContent } from '../../api/Usage';
+import { LoadMoreButton } from '../../components/ui/LoadMoreButton';
 import { t } from '../../i18n';
 import type { EventNode } from './ActivityTimelineModel';
 import {
   contentText,
   coverageLabel,
+  formatDuration,
   formatTime,
   JsonBlock,
   outcomeLabel,
@@ -20,6 +31,22 @@ import {
 import type { ActivityEvent, ActivityTimelineItem, ModelUsageSummary, TraceDetail } from './ActivityTimelineTypes';
 import { TraceUsagePanel } from './TraceUsagePanel';
 import type { EventContentState, TraceDetailState } from './useActivityTimeline';
+
+type EventVisual = {
+  icon: typeof MessageSquare;
+  surface: string;
+  accent: string;
+  iconColor: string;
+};
+
+const EVENT_VISUALS: Record<ActivityEvent['kind'], EventVisual> = {
+  prompt: { icon: MessageSquare, surface: 'blue.50', accent: 'blue.400', iconColor: 'blue.700' },
+  guard: { icon: ShieldCheck, surface: 'green.50', accent: 'green.400', iconColor: 'green.700' },
+  approval: { icon: UserCheck, surface: 'orange.50', accent: 'orange.400', iconColor: 'orange.700' },
+  agent: { icon: Bot, surface: 'gray.50', accent: 'gray.400', iconColor: 'gray.700' },
+  model: { icon: Sparkles, surface: 'purple.50', accent: 'purple.400', iconColor: 'purple.700' },
+  tool: { icon: Wrench, surface: 'yellow.50', accent: 'yellow.400', iconColor: 'yellow.700' },
+};
 
 function failureCopy(error: unknown): { message: string; signIn: boolean } {
   if (error instanceof ApiError) {
@@ -72,23 +99,6 @@ function displayValue(value: unknown): string {
     return JSON.stringify(value);
   }
   return String(value);
-}
-
-function layerName(kind: ActivityEvent['kind']): string {
-  switch (kind) {
-    case 'prompt':
-      return t('activity.prompt');
-    case 'guard':
-      return t('activity.guardDecision');
-    case 'approval':
-      return t('activity.approval');
-    case 'model':
-      return t('activity.modelCall');
-    case 'tool':
-      return t('activity.toolCall');
-    default:
-      return t('activity.agentActivity');
-  }
 }
 
 function EventContent({
@@ -295,13 +305,13 @@ function ModelStepUsage({ traceId, usage }: { traceId: string; usage: ModelUsage
   );
 }
 
-function SessionLayer({ trace }: { trace: TraceDetail }) {
+function SessionSummary({ trace }: { trace: TraceDetail }) {
   return (
     <Box as="section" aria-label={t('activity.sessionAria')} p={{ base: '5', md: '6' }} borderRadius="2xl" bg="governance.ink" color="white">
       <Flex justify="space-between" align="flex-start" gap="4" wrap="wrap">
         <Box>
           <Text color="whiteAlpha.800" fontSize="xs" fontWeight="bold" textTransform="uppercase">
-            {t('activity.layerOneSession')}
+            {t('activity.sessionSummary')}
           </Text>
           <Heading mt="2" fontFamily="heading" fontSize="2xl" color="white">
             {trace.identity ?? t('activity.identityNotReported')}
@@ -341,6 +351,84 @@ function SessionLayer({ trace }: { trace: TraceDetail }) {
   );
 }
 
+function TraceSummaryStrip({
+  trace,
+  events,
+  hasMore = false,
+}: {
+  trace: TraceDetail;
+  events: ActivityTimelineItem[];
+  hasMore?: boolean;
+}) {
+  const loaded = events.filter((item): item is ActivityEvent => !('tombstone' in item));
+  const tokenTotal = loaded.reduce(
+    (sum, event) => sum + (event.kind === 'model' ? event.usage?.totalTokens ?? 0 : 0),
+    0,
+  );
+  const modelTime = loaded.reduce(
+    (sum, event) => sum + (event.kind === 'model' ? event.usage?.durationMs ?? 0 : 0),
+    0,
+  );
+  const costs = loaded.flatMap((event) => {
+    if (event.kind !== 'model' || !event.usage || event.usage.totalCostUsd === null) {
+      return [];
+    }
+    return [{ value: event.usage.totalCostUsd, currency: event.usage.currency }];
+  });
+  const cost = costs.length
+    ? costs.reduce((sum, item) => sum + item.value, 0)
+    : null;
+  const currency = costs[0]?.currency ?? 'USD';
+  const stats = [
+    {
+      label: t('activity.events'),
+      value: hasMore ? `${loaded.length}+` : String(loaded.length),
+    },
+    {
+      label: t('activity.tokens'),
+      value: tokenTotal > 0 ? tokenTotal.toLocaleString() : t('common.notReported'),
+    },
+    { label: t('activity.cost'), value: money(cost, currency) },
+    {
+      label: t('activity.modelTime'),
+      value: modelTime > 0 ? formatDuration(modelTime) : t('common.notReported'),
+    },
+    { label: t('activity.guard'), value: outcomeLabel(trace.guardOutcome) },
+  ];
+
+  return (
+    <Box
+      as="section"
+      aria-label={t('activity.traceSummaryAria')}
+      mb="5"
+      p={{ base: '4', md: '5' }}
+      borderWidth="1px"
+      borderColor="governance.line"
+      borderRadius="xl"
+      bg="white"
+    >
+      <Grid
+        templateColumns={{ base: 'repeat(2, minmax(0, 1fr))', md: 'repeat(5, minmax(0, 1fr))' }}
+        gap="3"
+      >
+        {stats.map((stat) => (
+          <Box key={stat.label} p="3" borderRadius="lg" bg="governance.canvas">
+            <Text color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+              {stat.label}
+            </Text>
+            <Text mt="1" fontSize="lg" fontWeight="semibold">{stat.value}</Text>
+          </Box>
+        ))}
+      </Grid>
+      {hasMore ? (
+        <Text mt="3" color="governance.muted" fontSize="xs">
+          {t('activity.loadedSummaryNote')}
+        </Text>
+      ) : null}
+    </Box>
+  );
+}
+
 function EventCard({
   node,
   content,
@@ -358,15 +446,8 @@ function EventCard({
 }) {
   const { event } = node;
   const isPrompt = variant === 'prompt';
-  const kindPalette: Record<string, 'green' | 'orange' | 'red' | 'blue' | 'purple' | 'gray'> = {
-    prompt: 'blue',
-    guard: 'green',
-    approval: 'orange',
-    agent: 'purple',
-    model: 'gray',
-    tool: 'orange',
-  };
-  const kindColor = kindPalette[event.kind] ?? 'gray';
+  const visual = EVENT_VISUALS[event.kind];
+  const EventIcon = visual.icon;
 
   // The card body is a click target as well, so selecting/expanding an event
   // does not depend on hitting the small "Event details" button.
@@ -398,12 +479,12 @@ function EventCard({
           as="article"
           position="relative"
           p={isPrompt ? { base: '4', md: '5' } : '3'}
-          bg={isPrompt ? 'blue.50' : 'white'}
+          bg={visual.surface}
           borderWidth="1px"
-          borderColor={isPrompt ? 'blue.200' : 'governance.line'}
-          borderLeftWidth={isPrompt ? '4px' : '3px'}
-          borderLeftColor={isPrompt ? 'blue.400' : `${kindColor}.400`}
-          borderRadius={isPrompt ? 'xl' : 'md'}
+          borderColor="governance.line"
+          borderLeftWidth="4px"
+          borderLeftColor={visual.accent}
+          borderRadius={isPrompt ? 'xl' : 'lg'}
           cursor="pointer"
           onClick={(clickEvent) => toggleFromCard(clickEvent.target)}
         >
@@ -422,23 +503,25 @@ function EventCard({
           ) : null}
           <Flex justify="space-between" align="flex-start" gap="3" wrap="wrap">
             <HStack align="flex-start" gap="3">
-              <Badge colorPalette={kindColor} variant="subtle">{statusLabel(event.kind)}</Badge>
-              <Badge colorPalette={isPrompt ? 'blue' : 'gray'} variant={isPrompt ? 'solid' : 'outline'}>
-                {isPrompt
-                  ? t('activity.layerTwoPrompt')
-                  : t('activity.layerThree', { layer: layerName(event.kind) })}
-              </Badge>
+              <Flex
+                w="8"
+                h="8"
+                flexShrink="0"
+                align="center"
+                justify="center"
+                borderRadius="md"
+                bg="white"
+                borderWidth="1px"
+                borderColor={visual.accent}
+                color={visual.iconColor}
+              >
+                <EventIcon size={16} aria-hidden="true" />
+              </Flex>
               <Box>
                 <Heading as="h3" fontFamily="heading" fontSize={isPrompt ? 'lg' : 'sm'}>
                   {isPrompt ? t('activity.prompt') : eventHeading(event)}
                 </Heading>
                 <Text mt="1" color="governance.muted" fontSize="xs">{formatTime(event.receivedAt)}</Text>
-                {event.kind === 'model' && event.usage ? (
-                  <Text mt="1" color="governance.muted" fontSize="xs">
-                    {t('activity.tokenCount', { count: tokens(event.usage.totalTokens) })} ·{' '}
-                    {money(event.usage.totalCostUsd, event.usage.currency)}
-                  </Text>
-                ) : null}
               </Box>
             </HStack>
             <StatusBadge value={eventState(event)} />
@@ -449,7 +532,7 @@ function EventCard({
             <Text mt="3" color="orange.800" fontSize="sm">{t('activity.parentNotLoaded')}</Text>
           ) : null}
 
-          <EventContent event={event} state={content} />
+          {open ? <EventContent event={event} state={content} /> : null}
 
           <Button
             mt="3"
@@ -460,7 +543,13 @@ function EventCard({
             onClick={() => onToggle(event.eventId)}
           >
             {open ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
-            {open ? t('activity.hideDetails') : t('activity.eventDetails')}
+            {open
+              ? t('activity.hideDetails')
+              : node.children.length === 1
+                ? t('activity.showEventsOne')
+                : node.children.length > 1
+                  ? t('activity.showEventsOther', { count: node.children.length })
+                  : t('activity.eventDetails')}
           </Button>
 
           {open ? (
@@ -520,10 +609,17 @@ interface FlatEvent {
   variant: 'prompt' | 'agent';
 }
 
-function flattenEvents(prompt: EventNode | null, roots: EventNode[]): FlatEvent[] {
+function flattenEvents(
+  prompt: EventNode | null,
+  roots: EventNode[],
+  expanded: Set<string>,
+): FlatEvent[] {
   const rows: FlatEvent[] = [];
   const walk = (node: EventNode, depth: number, variant: 'prompt' | 'agent') => {
     rows.push({ node, depth, variant });
+    if (!expanded.has(node.event.eventId)) {
+      return;
+    }
     for (const child of node.children) {
       walk(child, depth + 1, 'agent');
     }
@@ -568,7 +664,6 @@ export function ActivityTracePage() {
     contentById,
     live,
     toggle,
-    loadContent,
     refresh,
     loadMore,
   } = detail;
@@ -578,8 +673,8 @@ export function ActivityTracePage() {
     [tree],
   );
   const rows = useMemo(
-    () => flattenEvents(selectedPrompt, agentRoots),
-    [selectedPrompt, agentRoots],
+    () => flattenEvents(selectedPrompt, agentRoots, expanded),
+    [selectedPrompt, agentRoots, expanded],
   );
   const approvals = useMemo(
     () => events.filter(
@@ -588,36 +683,6 @@ export function ActivityTracePage() {
     ),
     [events],
   );
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  // The selected prompt is always on screen, so load its full text instead of
-  // leaving the block with only a short preview. This is what makes choosing a
-  // prompt (or clicking its card) produce a visible response.
-  const promptEventId = selectedPrompt?.event.eventId ?? null;
-  const promptHasContent = selectedPrompt?.event.hasContent ?? false;
-  useEffect(() => {
-    if (promptEventId && promptHasContent) {
-      void loadContent(promptEventId);
-    }
-  }, [promptEventId, promptHasContent, loadContent]);
-
-  useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node || !nextCursor) {
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          loadMore();
-        }
-      },
-      { rootMargin: '240px 0px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [nextCursor, loadMore]);
-
   return (
     <Box>
       {loading && !trace ? <Text role="status" color="governance.muted">{t('activity.loadingActivity')}</Text> : null}
@@ -640,6 +705,10 @@ export function ActivityTracePage() {
       ) : null}
 
       {trace ? (
+        <TraceSummaryStrip trace={trace} events={events} hasMore={nextCursor !== null} />
+      ) : null}
+
+      {trace ? (
         <Box as="section" aria-labelledby="timeline-heading" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
           <Flex justify="space-between" align="flex-end" gap="4" wrap="wrap">
             <Box>
@@ -649,12 +718,6 @@ export function ActivityTracePage() {
             <HStack gap="2" align="center">
               <Badge colorPalette={live ? 'green' : 'gray'} variant="subtle">
                 {live ? t('activity.live') : t('activity.manualRefresh')}
-              </Badge>
-              <Badge colorPalette="gray" variant="subtle">
-                {t(
-                  events.length === 1 ? 'activity.eventCountOne' : 'activity.eventCountOther',
-                  { count: events.length },
-                )}
               </Badge>
               <Button size="sm" variant="outline" onClick={refresh} disabled={loading}>
                 {t('common.refresh')}
@@ -675,7 +738,7 @@ export function ActivityTracePage() {
                 : ''}
           </Text>
 
-          <SessionLayer trace={trace} />
+          <SessionSummary trace={trace} />
 
           <Box position="relative" mt="5" pl={{ base: '7', md: '10' }}>
             <Box
@@ -725,15 +788,13 @@ export function ActivityTracePage() {
             </Box>
           ) : null}
 
-          {nextCursor ? <Box ref={sentinelRef} h="1px" aria-hidden="true" /> : null}
-
-          {events.length > 0 ? (
-            <Button mt="5" variant="outline" onClick={loadMore} disabled={pending || !nextCursor}>
-              {pending
-                ? t('activity.loadingMoreActivity')
-                : nextCursor ? t('activity.loadMoreEvents') : t('activity.allEventsLoaded')}
-            </Button>
-          ) : null}
+          <LoadMoreButton
+            hasMore={nextCursor !== null}
+            loading={pending}
+            label={t('activity.loadMoreEvents')}
+            loadingLabel={t('activity.loadingMoreActivity')}
+            onClick={loadMore}
+          />
         </Box>
       ) : null}
 

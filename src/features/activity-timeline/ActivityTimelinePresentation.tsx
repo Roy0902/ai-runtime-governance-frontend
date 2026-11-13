@@ -42,6 +42,21 @@ export function formatTime(value: string | null): string {
   return formatDateTime(value, t('common.notReported'), 'utc');
 }
 
+export function formatDuration(value: number | null): string {
+  if (value === null) {
+    return t('common.notReported');
+  }
+  if (value < 1_000) {
+    return t('activity.durationValue', { value });
+  }
+  if (value < 60_000) {
+    return t('activity.durationSeconds', { value: (value / 1_000).toFixed(1) });
+  }
+  const minutes = Math.floor(value / 60_000);
+  const seconds = Math.round((value % 60_000) / 1_000);
+  return t('activity.durationMinutes', { minutes, seconds });
+}
+
 function capitalize(value: string): string {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }

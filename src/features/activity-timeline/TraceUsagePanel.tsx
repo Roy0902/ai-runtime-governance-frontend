@@ -1,9 +1,13 @@
 import { Fragment, useEffect, useState } from 'react';
-import { Badge, Box, Button, Flex, Heading, Stack, Table, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Flex, Heading, HStack, Stack, Table, Text } from '@chakra-ui/react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useAuthentication } from '../../AuthenticationContext';
 import type { ModelUsage, ObservationContent } from '../../api/Usage';
+import { LoadMoreButton } from '../../components/ui/LoadMoreButton';
 import { t } from '../../i18n';
-import { JsonBlock, StatusBadge } from './ActivityTimelinePresentation';
+import { formatDuration, JsonBlock, StatusBadge } from './ActivityTimelinePresentation';
+
+const PAGE_SIZE = 20;
 
 function tokens(value: number | null): string {
   return value === null ? t('common.notReported') : value.toLocaleString();
@@ -21,12 +25,6 @@ function money(value: number | null, currency: string): string {
   }).format(value);
 }
 
-function duration(value: number | null): string {
-  return value === null
-    ? t('common.notReported')
-    : t('activity.durationValue', { value: value.toLocaleString() });
-}
-
 function modelLabel(row: ModelUsage): string {
   if (row.responseModel && row.responseModel !== row.requestedModel) {
     return `${row.requestedModel} → ${row.responseModel}`;
@@ -36,8 +34,10 @@ function modelLabel(row: ModelUsage): string {
 
 export function TraceUsagePanel({ traceId }: { traceId: string }) {
   const { send } = useAuthentication();
+  const [open, setOpen] = useState(false);
   const [usage, setUsage] = useState<ModelUsage[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openObservation, setOpenObservation] = useState<string | null>(null);
   const [contents, setContents] = useState<Record<string, ObservationContent>>({});
@@ -45,6 +45,9 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
   const [contentErrors, setContentErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    if (!open || usage !== null) {
+      return;
+    }
     let active = true;
     setLoading(true);
     setError(null);
@@ -67,7 +70,7 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
     return () => {
       active = false;
     };
-  }, [send, traceId]);
+  }, [open, send, traceId, usage]);
 
   function toggleOutput(row: ModelUsage) {
     const observationId = row.langfuseObservationId;
@@ -113,40 +116,58 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
           <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">{t('activity.providerAccounting')}</Text>
           <Heading id="usage-heading" fontFamily="heading" fontSize="xl">{t('activity.modelUsage')}</Heading>
         </Box>
-        {usage ? (
-          <Badge colorPalette="gray" variant="subtle">
-            {t(usage.length === 1 ? 'activity.callCountOne' : 'activity.callCountOther', { count: usage.length })}
-          </Badge>
-        ) : null}
+        <HStack gap="2">
+          {usage ? (
+            <Badge colorPalette="gray" variant="subtle">
+              {t(usage.length === 1 ? 'activity.callCountOne' : 'activity.callCountOther', { count: usage.length })}
+            </Badge>
+          ) : null}
+          <Button
+            size="xs"
+            variant="ghost"
+            aria-expanded={open}
+            onClick={() => {
+              const next = !open;
+              setOpen(next);
+              if (next) {
+                setVisibleCount(PAGE_SIZE);
+              } else {
+                setUsage(null);
+                setError(null);
+              }
+            }}
+          >
+            {open
+              ? <ChevronDown size={14} aria-hidden="true" />
+              : <ChevronRight size={14} aria-hidden="true" />}
+            {open ? t('activity.hideModelUsage') : t('activity.showModelUsage')}
+          </Button>
+        </HStack>
       </Flex>
 
-      {loading ? <Text role="status" color="governance.muted">{t('activity.loadingModelUsage')}</Text> : null}
-      {error ? <Text role="alert" p="3" borderRadius="md" bg="red.50" color="red.800">{error}</Text> : null}
-      {!loading && !error && usage && usage.length === 0 ? (
+      {open && loading ? <Text role="status" color="governance.muted">{t('activity.loadingModelUsage')}</Text> : null}
+      {open && error ? <Text role="alert" p="3" borderRadius="md" bg="red.50" color="red.800">{error}</Text> : null}
+      {open && !loading && !error && usage && usage.length === 0 ? (
         <Text role="status" py="8" color="governance.muted" textAlign="center">{t('activity.noModelUsage')}</Text>
       ) : null}
 
-      {usage && usage.length > 0 ? (
+      {open && usage && usage.length > 0 ? (
+        <>
         <Table.ScrollArea>
           <Table.Root native size="sm" interactive>
             <Table.Caption>{t('activity.usageByCall')}</Table.Caption>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeader>{t('activity.model')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('activity.input')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('activity.output')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('activity.cached')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('activity.reasoning')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('activity.total')}</Table.ColumnHeader>
+                <Table.ColumnHeader>{t('activity.totalTokens')}</Table.ColumnHeader>
                 <Table.ColumnHeader>{t('activity.cost')}</Table.ColumnHeader>
                 <Table.ColumnHeader>{t('activity.latency')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('activity.firstByte')}</Table.ColumnHeader>
                 <Table.ColumnHeader>{t('activity.outcome')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('activity.content')}</Table.ColumnHeader>
+                <Table.ColumnHeader>{t('activity.details')}</Table.ColumnHeader>
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {usage.map((row) => {
+              {usage.slice(0, visibleCount).map((row) => {
                 const observationId = row.langfuseObservationId;
                 return (
                   <Fragment key={row.id}>
@@ -173,11 +194,15 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
                           </Text>
                         ) : null}
                       </Table.Cell>
-                      <Table.Cell>{tokens(row.inputTokens)}</Table.Cell>
-                      <Table.Cell>{tokens(row.outputTokens)}</Table.Cell>
-                      <Table.Cell>{tokens(row.cachedInputTokens)}</Table.Cell>
-                      <Table.Cell>{tokens(row.reasoningOutputTokens)}</Table.Cell>
-                      <Table.Cell>{tokens(row.totalTokens)}</Table.Cell>
+                      <Table.Cell>
+                        <Text>{tokens(row.totalTokens)}</Text>
+                        <Text mt="1" color="governance.muted" fontSize="xs">
+                          {t('activity.tokenBreakdown', {
+                            input: tokens(row.inputTokens),
+                            output: tokens(row.outputTokens),
+                          })}
+                        </Text>
+                      </Table.Cell>
                       <Table.Cell>
                         <span>{money(row.totalCostUsd, row.currency)}</span>
                         {row.providerReportedCostUsd !== null ? (
@@ -188,8 +213,14 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
                           </Text>
                         ) : null}
                       </Table.Cell>
-                      <Table.Cell>{duration(row.durationMs)}</Table.Cell>
-                      <Table.Cell>{duration(row.timeToFirstByteMs)}</Table.Cell>
+                      <Table.Cell>
+                        <Text>{formatDuration(row.durationMs)}</Text>
+                        <Text mt="1" color="governance.muted" fontSize="xs">
+                          {t('activity.firstByteValue', {
+                            value: formatDuration(row.timeToFirstByteMs),
+                          })}
+                        </Text>
+                      </Table.Cell>
                       <Table.Cell><StatusBadge value={row.outcome} /></Table.Cell>
                       <Table.Cell>
                         {observationId ? (
@@ -210,7 +241,7 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
                     </Table.Row>
                     {openObservation === observationId && observationId ? (
                       <Table.Row>
-                        <Table.Cell colSpan={11} bg="governance.canvas">
+                        <Table.Cell colSpan={6} bg="governance.canvas">
                           {loadingObservation === observationId ? (
                             <Text role="status" color="governance.muted">{t('activity.loadingOutput')}</Text>
                           ) : null}
@@ -247,7 +278,7 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
                       </Table.Row>
                     ) : null}
                     <Table.Row>
-                      <Table.Cell colSpan={11} bg="governance.canvas">
+                      <Table.Cell colSpan={6} bg="governance.canvas">
                         <JsonBlock label={t('activity.allUsageFields')} value={row} />
                       </Table.Cell>
                     </Table.Row>
@@ -257,9 +288,15 @@ export function TraceUsagePanel({ traceId }: { traceId: string }) {
             </Table.Body>
           </Table.Root>
         </Table.ScrollArea>
+        <LoadMoreButton
+          hasMore={usage.length > visibleCount}
+          label={t('activity.showMoreCalls')}
+          onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+        />
+        </>
       ) : null}
 
-      {usage?.some((row) => row.captureTruncated) ? (
+      {open && usage?.some((row) => row.captureTruncated) ? (
         <Text role="note" mt="4" p="3" borderRadius="md" bg="orange.50" color="orange.900" fontSize="sm">
           {t('activity.captureTruncated')}
         </Text>

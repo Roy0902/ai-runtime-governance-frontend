@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Box, Spinner, Stack, Text } from '@chakra-ui/react';
 import { Route, Routes } from 'react-router-dom';
-import { AuthenticationProvider } from './AuthenticationContext';
+import { AuthenticationProvider, useAuthentication } from './AuthenticationContext';
 import { RequireHuman } from './components/layout/RequireHuman';
 import { PageLoading } from './components/ui/PageLoading';
 import { ActivityEmptyState, ActivityLayout } from './features/activity-timeline/ActivityLayout';
@@ -11,10 +12,54 @@ const ActivityTracePage = lazy(() => import('./features/activity-timeline/Activi
 const AuthenticationRoutes = lazy(() => import('./features/authentication/AuthenticationRoutes')
   .then((module) => ({ default: module.AuthenticationRoutes })));
 
+function InitializingGate({ children }: { children: ReactNode }) {
+  const { loading } = useAuthentication();
+  const [initializing, setInitializing] = useState(loading);
+  const firstLoad = useRef(true);
+
+  useEffect(() => {
+    if (!firstLoad.current || loading) {
+      return;
+    }
+    firstLoad.current = false;
+    setInitializing(false);
+  }, [loading]);
+
+  return (
+    <>
+      <div style={{ display: 'contents' }} inert={initializing ? true : undefined}>
+        {children}
+      </div>
+      {initializing ? (
+        <Box
+          position="fixed"
+          inset="0"
+          zIndex={9999}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          bg="blackAlpha.600"
+          backdropFilter="blur(2px)"
+          cursor="progress"
+          role="status"
+          aria-busy="true"
+          aria-label={t('loading.page')}
+        >
+          <Stack align="center" gap="3">
+            <Spinner colorPalette="green" size="lg" />
+            <Text color="white" fontSize="sm">{t('loading.page')}</Text>
+          </Stack>
+        </Box>
+      ) : null}
+    </>
+  );
+}
+
 function AuthenticatedRoutes() {
   return (
     <AuthenticationProvider>
-      <Routes>
+      <InitializingGate>
+        <Routes>
         <Route
           path="/activity"
           element={
@@ -40,7 +85,8 @@ function AuthenticatedRoutes() {
             <AuthenticationRoutes />
           </Suspense>
         } />
-      </Routes>
+        </Routes>
+      </InitializingGate>
     </AuthenticationProvider>
   );
 }
