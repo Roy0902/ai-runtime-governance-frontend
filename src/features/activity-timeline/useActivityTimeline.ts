@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '../../ApplicationApiClient';
 import {
+  fetchEventContent,
   fetchEventPage,
   fetchLiveEvents,
   fetchLiveTraces,
@@ -13,6 +14,9 @@ import type { ActivityTimelineItem, TraceDetail, TraceItem } from './ActivityTim
 
 const LIVE_LIST_INTERVAL_MS = 2_000;
 const LIVE_DETAIL_INTERVAL_MS = 1_000;
+const IDLE_DETAIL_INTERVAL_MS = 10_000;
+const TERMINAL_IDLE_POLLS = 3;
+const MAX_LIST_ITEMS = 300;
 
 function appendEvents(
   previous: ActivityTimelineItem[],
@@ -55,11 +59,17 @@ export function useTraceList(): TraceListState {
   const liveSince = useRef<string | null>(null);
   const liveEnabled = useRef(true);
   const loadingRef = useRef(true);
+  const pollingRef = useRef(false);
+  const pendingRef = useRef(false);
 
   const load = useCallback(async (append: boolean) => {
+    if (append && pendingRef.current) {
+      return;
+    }
     const current = ++generation.current;
     setError(null);
     if (append) {
+      pendingRef.current = true;
       setPending(true);
     } else {
       setLoading(true);
@@ -81,6 +91,7 @@ export function useTraceList(): TraceListState {
         setError(caught);
       }
     } finally {
+      pendingRef.current = false;
       if (current === generation.current) {
         setLoading(false);
         loadingRef.current = false;
@@ -97,9 +108,10 @@ export function useTraceList(): TraceListState {
   }, [load]);
 
   const poll = useCallback(async () => {
-    if (!liveEnabled.current || loadingRef.current || document.hidden) {
+    if (!liveEnabled.current || loadingRef.current || pollingRef.current || document.hidden) {
       return;
     }
+    pollingRef.current = true;
     try {
       const fresh = await fetchLiveTraces(liveSince.current);
       if (!liveEnabled.current) {
@@ -114,13 +126,17 @@ export function useTraceList(): TraceListState {
       setItems((previous) => {
         const known = new Set(previous.map((item) => item.traceId));
         const additions = fresh.filter((item) => !known.has(item.traceId));
-        return additions.length ? [...additions, ...previous] : previous;
+        return additions.length
+          ? [...additions, ...previous].slice(0, MAX_LIST_ITEMS)
+          : previous;
       });
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 404) {
         liveEnabled.current = false;
         setLive(false);
       }
+    } finally {
+      pollingRef.current = false;
     }
   }, []);
 
@@ -154,6 +170,13 @@ export function useTraceList(): TraceListState {
   return { items, nextCursor, loading, pending, error, live, refresh, loadMore };
 }
 
+export interface EventContentState {
+  content: Record<string, unknown> | null;
+  raw: Record<string, unknown> | null;
+  loading: boolean;
+  error: boolean;
+}
+
 export interface TraceDetailState {
   trace: TraceDetail | null;
   events: ActivityTimelineItem[];
@@ -164,8 +187,10 @@ export interface TraceDetailState {
   lastLoaded: number | null;
   error: unknown;
   expanded: Set<string>;
+  contentById: Record<string, EventContentState>;
   live: boolean;
   toggle: (eventId: string) => void;
+  loadContent: (eventId: string) => void;
   refresh: () => void;
   loadMore: () => void;
 }
@@ -180,8 +205,28 @@ function newestEventToken(events: ActivityTimelineItem[]): string | null {
   return null;
 }
 
+function isTerminal(trace: TraceDetail): boolean {
+  return trace.executionStatus !== 'running' && trace.telemetryStatus !== 'incomplete';
+}
+
 function sameTrace(previous: TraceDetail | null, next: TraceDetail): boolean {
-  return previous !== null && JSON.stringify(previous) === JSON.stringify(next);
+  if (previous === null) {
+    return false;
+  }
+  return previous.traceId === next.traceId
+    && previous.receivedAt === next.receivedAt
+    && previous.executionStatus === next.executionStatus
+    && previous.telemetryStatus === next.telemetryStatus
+    && previous.guardOutcome === next.guardOutcome
+    && previous.identity === next.identity
+    && previous.sessionId === next.sessionId
+    && previous.coverage.input === next.coverage.input
+    && previous.coverage.response === next.coverage.response
+    && previous.coverage.tools === next.coverage.tools
+    && previous.loss?.causeCode === next.loss?.causeCode
+    && previous.loss?.missingCount === next.loss?.missingCount
+    && previous.loss?.from === next.loss?.from
+    && previous.loss?.to === next.loss?.to;
 }
 
 export function useTraceDetail(traceId: string | undefined): TraceDetailState {
@@ -193,12 +238,19 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
   const [lastLoaded, setLastLoaded] = useState<number | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [contentById, setContentById] = useState<Record<string, EventContentState>>({});
   const [live, setLive] = useState(true);
   const cursor = useRef<string | null>(null);
   const generation = useRef(0);
   const liveSince = useRef<string | null>(null);
   const liveEnabled = useRef(true);
   const loadingRef = useRef(true);
+  const pollingRef = useRef(false);
+  const terminalRef = useRef(false);
+  const idlePolls = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const contentRef = useRef<Record<string, EventContentState>>({});
+  const hasContentRef = useRef<Set<string>>(new Set());
 
   const loadFirst = useCallback(async () => {
     const current = ++generation.current;
@@ -228,11 +280,9 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
       setEvents(page.items);
       setNextCursor(page.nextCursor);
       liveSince.current = newestEventToken(page.items);
-      setExpanded(new Set(
-        page.items
-          .filter((item) => !('tombstone' in item))
-          .map((item) => item.eventId),
-      ));
+      terminalRef.current = isTerminal(nextTrace);
+      idlePolls.current = 0;
+      setExpanded(new Set());
     } catch (caught) {
       if (current === generation.current) {
         setError(caught);
@@ -247,6 +297,10 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
 
   useEffect(() => {
     setExpanded(new Set());
+    setContentById({});
+    contentRef.current = {};
+    terminalRef.current = false;
+    idlePolls.current = 0;
     void loadFirst();
     return () => {
       generation.current += 1;
@@ -254,68 +308,93 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
   }, [loadFirst]);
 
   const poll = useCallback(async () => {
-    if (!traceId || !liveEnabled.current || loadingRef.current || document.hidden) {
+    if (
+      !traceId
+      || !liveEnabled.current
+      || loadingRef.current
+      || pollingRef.current
+      || document.hidden
+    ) {
       return;
     }
+    const current = generation.current;
+    pollingRef.current = true;
     try {
       const [nextTrace, fresh] = await Promise.all([
         fetchTrace(traceId),
         fetchLiveEvents(traceId, liveSince.current),
       ]);
-      if (!liveEnabled.current) {
+      if (current !== generation.current || !liveEnabled.current) {
         return;
       }
       setLive(true);
       setError(null);
       setTrace((previous) => (sameTrace(previous, nextTrace) ? previous : nextTrace));
-      if (!fresh.length) {
-        return;
-      }
-      liveSince.current = newestEventToken(fresh) ?? liveSince.current;
-      setEvents((previous) => appendEvents(previous, fresh));
-      setExpanded((previous) => {
-        const next = new Set(previous);
-        for (const event of fresh) {
-          if (!('tombstone' in event)) {
-            next.add(event.eventId);
-          }
+      terminalRef.current = isTerminal(nextTrace);
+      if (fresh.length) {
+        idlePolls.current = 0;
+        liveSince.current = newestEventToken(fresh) ?? liveSince.current;
+        setEvents((previous) => appendEvents(previous, fresh));
+      } else if (terminalRef.current) {
+        idlePolls.current += 1;
+        if (idlePolls.current >= TERMINAL_IDLE_POLLS) {
+          liveEnabled.current = false;
+          setLive(false);
         }
-        return next;
-      });
+      }
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 404) {
         liveEnabled.current = false;
         setLive(false);
       }
+    } finally {
+      pollingRef.current = false;
     }
   }, [traceId]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      void poll();
-    }, LIVE_DETAIL_INTERVAL_MS);
+    let timer: number | undefined;
+    let stopped = false;
+    const schedule = (delay: number) => {
+      timer = window.setTimeout(async () => {
+        await poll();
+        if (stopped) {
+          return;
+        }
+        schedule(terminalRef.current ? IDLE_DETAIL_INTERVAL_MS : LIVE_DETAIL_INTERVAL_MS);
+      }, delay);
+    };
     const onVisibility = () => {
       if (!document.hidden) {
         void poll();
       }
     };
+    schedule(LIVE_DETAIL_INTERVAL_MS);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-      window.clearInterval(timer);
+      stopped = true;
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+      }
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [poll]);
 
   const refresh = useCallback(() => {
     cursor.current = null;
+    liveEnabled.current = true;
+    terminalRef.current = false;
+    idlePolls.current = 0;
+    setLive(true);
     void loadFirst();
   }, [loadFirst]);
 
   const loadMore = useCallback(async () => {
-    if (!traceId || !cursor.current || pending) {
+    if (!traceId || !cursor.current || loadingMoreRef.current) {
       return;
     }
     const current = generation.current;
+    loadingMoreRef.current = true;
     setPending(true);
     setLastLoaded(null);
     try {
@@ -326,26 +405,64 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
       cursor.current = page.nextCursor;
       setNextCursor(page.nextCursor);
       setEvents((previous) => appendEvents(previous, page.items));
-      setExpanded((previous) => {
-        const next = new Set(previous);
-        for (const item of page.items) {
-          if (!('tombstone' in item)) {
-            next.add(item.eventId);
-          }
-        }
-        return next;
-      });
       setLastLoaded(page.items.length);
     } catch (caught) {
       if (current === generation.current) {
         setError(caught);
       }
     } finally {
+      loadingMoreRef.current = false;
       if (current === generation.current) {
         setPending(false);
       }
     }
-  }, [traceId, pending]);
+  }, [traceId]);
+
+  useEffect(() => {
+    hasContentRef.current = new Set(
+      events
+        .filter((item) => !('tombstone' in item) && item.hasContent)
+        .map((item) => item.eventId),
+    );
+  }, [events]);
+
+  const loadContent = useCallback(async (eventId: string) => {
+    if (!traceId) {
+      return;
+    }
+    const known = contentRef.current[eventId];
+    if (known && (known.loading || !known.error)) {
+      return;
+    }
+    const current = generation.current;
+    const loading: EventContentState = {
+      content: null,
+      raw: null,
+      loading: true,
+      error: false,
+    };
+    contentRef.current = { ...contentRef.current, [eventId]: loading };
+    setContentById(contentRef.current);
+    try {
+      const value = await fetchEventContent(traceId, eventId);
+      if (current !== generation.current) {
+        return;
+      }
+      contentRef.current = {
+        ...contentRef.current,
+        [eventId]: { ...value, loading: false, error: false },
+      };
+    } catch {
+      if (current !== generation.current) {
+        return;
+      }
+      contentRef.current = {
+        ...contentRef.current,
+        [eventId]: { content: null, raw: null, loading: false, error: true },
+      };
+    }
+    setContentById(contentRef.current);
+  }, [traceId]);
 
   const toggle = useCallback((eventId: string) => {
     setExpanded((previous) => {
@@ -357,7 +474,10 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
       }
       return next;
     });
-  }, []);
+    if (hasContentRef.current.has(eventId)) {
+      void loadContent(eventId);
+    }
+  }, [loadContent]);
 
   const tree = useMemo(() => buildEventTree(events), [events]);
 
@@ -371,8 +491,10 @@ export function useTraceDetail(traceId: string | undefined): TraceDetailState {
     lastLoaded,
     error,
     expanded,
+    contentById,
     live,
     toggle,
+    loadContent,
     refresh,
     loadMore,
   };

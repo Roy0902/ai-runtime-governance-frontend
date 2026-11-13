@@ -45,7 +45,14 @@ interface ActivityEventDto {
   metadata: EventMetadataDto | null;
   usage: ModelUsageSummary | null;
   content?: Record<string, unknown> | null;
+  preview?: string | null;
+  hasContent?: boolean;
   tombstone?: boolean;
+}
+
+export interface EventContent {
+  content: Record<string, unknown> | null;
+  raw: Record<string, unknown>;
 }
 
 export interface LoadedPage<T> {
@@ -69,8 +76,9 @@ function toActivityEvent(dto: ActivityEventDto): ActivityTimelineItem {
     sourceAt: dto.sourceAt,
     durationMs: dto.durationMs,
     identity: dto.identity,
+    preview: dto.preview ?? null,
+    hasContent: dto.hasContent ?? dto.content != null,
     content: dto.content ?? null,
-    raw: dto as unknown as Record<string, unknown>,
   };
 
   switch (dto.kind) {
@@ -147,9 +155,19 @@ export async function fetchLiveEvents(
 ): Promise<ActivityTimelineItem[]> {
   const query = since ? `?since=${encodeURIComponent(since)}` : '?since=start';
   const page = await apiRequest<PageDto<ActivityEventDto>>(
-    `/api/v1/timeline/traces/${encodeURIComponent(traceId)}/events${query}`,
+    `/api/v1/timeline/traces/${encodeURIComponent(traceId)}/events${query}&includeContent=false`,
   );
   return page.items.map(toActivityEvent);
+}
+
+export async function fetchEventContent(traceId: string, eventId: string): Promise<EventContent> {
+  const dto = await apiRequest<ActivityEventDto>(
+    `/api/v1/traces/${encodeURIComponent(traceId)}/events/${encodeURIComponent(eventId)}`,
+  );
+  return {
+    content: dto.content ?? null,
+    raw: dto as unknown as Record<string, unknown>,
+  };
 }
 
 export async function fetchTrace(traceId: string): Promise<TraceDetail> {
@@ -161,7 +179,9 @@ export async function fetchEventPage(
   traceId: string,
   cursor?: string | null,
 ): Promise<LoadedPage<ActivityTimelineItem>> {
-  const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  const query = cursor
+    ? `?cursor=${encodeURIComponent(cursor)}&includeContent=false`
+    : '?includeContent=false';
   const page = await apiRequest<PageDto<ActivityEventDto>>(
     `/api/v1/traces/${encodeURIComponent(traceId)}/events${query}`,
   );

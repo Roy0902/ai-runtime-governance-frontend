@@ -33,9 +33,7 @@ export function ApplicationHeader({
       <Box as="header" borderBottomWidth="1px" borderColor="governance.line" bg="white/92" backdropFilter="blur(14px)">
         <Flex
           w="full"
-          maxW="1440px"
           minH={{ base: 'auto', md: '76px' }}
-          mx="auto"
           px={{ base: '4', md: '8' }}
           py={{ base: '3', md: '0' }}
           align="center"

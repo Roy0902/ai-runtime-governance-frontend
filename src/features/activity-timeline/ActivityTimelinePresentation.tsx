@@ -1,12 +1,37 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { ActivityEvent, GuardOutcome, TraceDetail } from './ActivityTimelineTypes';
 import { formatDateTime } from '../../format/date';
 import { t } from '../../i18n';
 import { Badge, Box, Button, Flex, Grid, Heading, HStack, Text } from '@chakra-ui/react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
+export function contentText(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  const parts: string[] = [];
+  for (const part of value) {
+    if (!part || typeof part !== 'object') {
+      continue;
+    }
+    const record = part as Record<string, unknown>;
+    const kind = typeof record.type === 'string' ? record.type : '';
+    if (kind === 'text' || kind === 'input_text') {
+      if (typeof record.text === 'string') {
+        parts.push(record.text);
+      }
+    } else if (kind === 'image_url' || kind === 'image' || kind === 'input_image') {
+      parts.push('[image]');
+    }
+  }
+  return parts.length ? parts.join('\n') : null;
+}
+
 export function promptPreview(event: ActivityEvent): string {
-  const text = event.content?.text;
+  const text = contentText(event.content?.text) ?? event.preview;
   if (typeof text === 'string' && text.trim().length) {
     return text;
   }
@@ -46,7 +71,7 @@ export function outcomeLabel(value: GuardOutcome | null): string {
   return value ? capitalize(value.replaceAll('_', ' ')) : t('activity.noGuardOutcome');
 }
 
-export function JsonBlock({ value, label }: { value: unknown; label: string }) {
+function JsonBlockView({ value, label }: { value: unknown; label: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -93,6 +118,8 @@ export function JsonBlock({ value, label }: { value: unknown; label: string }) {
     </Box>
   );
 }
+
+export const JsonBlock = memo(JsonBlockView);
 
 export function StatusBadge({ value, label }: { value: string | null; label?: string }) {
   const normalized = value?.replaceAll('_', '-') ?? 'unknown';

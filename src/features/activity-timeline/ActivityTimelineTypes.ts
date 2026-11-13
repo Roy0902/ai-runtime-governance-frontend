@@ -72,8 +72,9 @@ interface ActivityEventBase {
   sourceAt: string | null;
   durationMs: number | null;
   identity: string | null;
+  preview: string | null;
+  hasContent: boolean;
   content: Record<string, unknown> | null;
-  raw?: Record<string, unknown>;
 }
 
 export type ActivityEvent =

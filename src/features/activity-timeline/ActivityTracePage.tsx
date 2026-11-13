@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import { Badge, Box, Button, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -8,6 +8,7 @@ import type { ObservationContent } from '../../api/Usage';
 import { t } from '../../i18n';
 import type { EventNode } from './ActivityTimelineModel';
 import {
+  contentText,
   coverageLabel,
   formatTime,
   JsonBlock,
@@ -18,7 +19,7 @@ import {
 } from './ActivityTimelinePresentation';
 import type { ActivityEvent, ActivityTimelineItem, ModelUsageSummary, TraceDetail } from './ActivityTimelineTypes';
 import { TraceUsagePanel } from './TraceUsagePanel';
-import type { TraceDetailState } from './useActivityTimeline';
+import type { EventContentState, TraceDetailState } from './useActivityTimeline';
 
 function failureCopy(error: unknown): { message: string; signIn: boolean } {
   if (error instanceof ApiError) {
@@ -90,9 +91,40 @@ function layerName(kind: ActivityEvent['kind']): string {
   }
 }
 
-function EventContent({ event }: { event: ActivityEvent }) {
-  const content = event.content;
+function EventContent({
+  event,
+  state,
+}: {
+  event: ActivityEvent;
+  state: EventContentState | undefined;
+}) {
+  const content = state?.content ?? null;
   if (!content) {
+    if (state?.loading) {
+      return <Text mt="3" color="governance.muted" fontSize="sm">{t('activity.loadingContent')}</Text>;
+    }
+    if (state?.error) {
+      return <Text mt="3" role="alert" color="red.700" fontSize="sm">{t('activity.contentLoadFailed')}</Text>;
+    }
+    if (event.preview) {
+      return (
+        <Text
+          mt="3"
+          color="governance.muted"
+          fontSize="sm"
+          whiteSpace="pre-wrap"
+          wordBreak="break-word"
+          css={{
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {event.preview}
+        </Text>
+      );
+    }
     return null;
   }
   const blocks: Array<[string, string]> = [];
@@ -107,7 +139,7 @@ function EventContent({ event }: { event: ActivityEvent }) {
   };
 
   if (event.kind === 'prompt') {
-    push(t('activity.prompt'), content.text);
+    push(t('activity.prompt'), contentText(content.text) ?? content.text);
   } else if (event.kind === 'model') {
     push(t('activity.modelOutput'), content.output);
     push(t('activity.reasoning'), content.reasoning);
@@ -311,17 +343,20 @@ function SessionLayer({ trace }: { trace: TraceDetail }) {
 
 function EventCard({
   node,
-  expanded,
+  content,
+  open,
+  depth,
   onToggle,
   variant = 'agent',
 }: {
   node: EventNode;
-  expanded: Set<string>;
+  content: EventContentState | undefined;
+  open: boolean;
+  depth: number;
   onToggle: (eventId: string) => void;
   variant?: 'prompt' | 'agent';
 }) {
   const { event } = node;
-  const open = expanded.has(event.eventId);
   const isPrompt = variant === 'prompt';
   const kindPalette: Record<string, 'green' | 'orange' | 'red' | 'blue' | 'purple' | 'gray'> = {
     prompt: 'blue',
@@ -333,8 +368,31 @@ function EventCard({
   };
   const kindColor = kindPalette[event.kind] ?? 'gray';
 
+  // The card body is a click target as well, so selecting/expanding an event
+  // does not depend on hitting the small "Event details" button.
+  const toggleFromCard = (target: EventTarget | null) => {
+    if (
+      target instanceof Element
+      && target.closest('button, a, input, select, textarea, label, [role="button"]')
+    ) {
+      return;
+    }
+    const selection = typeof window === 'undefined' ? null : window.getSelection();
+    if (selection && selection.toString().trim().length > 0) {
+      return;
+    }
+    onToggle(event.eventId);
+  };
+
   return (
-    <Box as="li" listStyle="none">
+    <Box
+      as="li"
+      listStyle="none"
+      pl={depth > 0 ? { base: '3', md: '5' } : '0'}
+      ml={depth > 0 ? { base: '1', md: '2' } : '0'}
+      borderLeftWidth={depth > 0 ? '2px' : '0'}
+      borderColor={isPrompt ? 'blue.200' : 'governance.line'}
+    >
       <Stack gap="3">
         <Box
           as="article"
@@ -346,6 +404,8 @@ function EventCard({
           borderLeftWidth={isPrompt ? '4px' : '3px'}
           borderLeftColor={isPrompt ? 'blue.400' : `${kindColor}.400`}
           borderRadius={isPrompt ? 'xl' : 'md'}
+          cursor="pointer"
+          onClick={(clickEvent) => toggleFromCard(clickEvent.target)}
         >
           {isPrompt ? (
             <Box
@@ -389,7 +449,7 @@ function EventCard({
             <Text mt="3" color="orange.800" fontSize="sm">{t('activity.parentNotLoaded')}</Text>
           ) : null}
 
-          <EventContent event={event} />
+          <EventContent event={event} state={content} />
 
           <Button
             mt="3"
@@ -435,43 +495,46 @@ function EventCard({
               {event.kind === 'model' && event.usage ? (
                 <ModelStepUsage traceId={event.traceId} usage={event.usage} />
               ) : null}
-              {event.kind === 'tool' && !event.content ? (
+              {event.kind === 'tool' && !event.hasContent ? (
                 <Text gridColumn={{ md: '1 / -1' }} fontSize="sm" color="governance.muted">
                   {t('activity.toolContractNote')}
                 </Text>
               ) : null}
               <Box gridColumn={{ md: '1 / -1' }}>
-                <JsonBlock label={t('activity.rawEventJson')} value={event.raw ?? event} />
+                <JsonBlock label={t('activity.rawEventJson')} value={content?.raw ?? event} />
               </Box>
             </Grid>
           ) : null}
         </Box>
 
-        {node.children.length ? (
-          <Box mt="3">
-            <Stack
-              as="ol"
-              gap="2"
-              pl={{ base: '4', md: '6' }}
-              ml={{ base: '1', md: '2' }}
-              borderLeftWidth="2px"
-              borderColor={isPrompt ? 'blue.200' : 'governance.line'}
-            >
-              {node.children.map((child) => (
-                <EventCard
-                  key={child.event.eventId}
-                  node={child}
-                  expanded={expanded}
-                  onToggle={onToggle}
-                  variant="agent"
-                />
-              ))}
-            </Stack>
-          </Box>
-        ) : null}
       </Stack>
     </Box>
   );
+}
+
+const MemoEventCard = memo(EventCard);
+
+interface FlatEvent {
+  node: EventNode;
+  depth: number;
+  variant: 'prompt' | 'agent';
+}
+
+function flattenEvents(prompt: EventNode | null, roots: EventNode[]): FlatEvent[] {
+  const rows: FlatEvent[] = [];
+  const walk = (node: EventNode, depth: number, variant: 'prompt' | 'agent') => {
+    rows.push({ node, depth, variant });
+    for (const child of node.children) {
+      walk(child, depth + 1, 'agent');
+    }
+  };
+  if (prompt) {
+    walk(prompt, 0, 'prompt');
+  }
+  for (const root of roots) {
+    walk(root, 0, 'agent');
+  }
+  return rows;
 }
 
 function TraceRawPanel({ trace, events }: { trace: TraceDetail; events: ActivityTimelineItem[] }) {
@@ -502,17 +565,58 @@ export function ActivityTracePage() {
     lastLoaded,
     error,
     expanded,
+    contentById,
     live,
     toggle,
+    loadContent,
     refresh,
     loadMore,
   } = detail;
   const failure = error ? failureCopy(error) : null;
-  const agentRoots = tree.roots.filter((node) => node.event.kind !== 'prompt');
-  const approvals = events.filter(
-    (event): event is Extract<ActivityEvent, { kind: 'approval' }> =>
-      !('tombstone' in event) && event.kind === 'approval',
+  const agentRoots = useMemo(
+    () => tree.roots.filter((node) => node.event.kind !== 'prompt'),
+    [tree],
   );
+  const rows = useMemo(
+    () => flattenEvents(selectedPrompt, agentRoots),
+    [selectedPrompt, agentRoots],
+  );
+  const approvals = useMemo(
+    () => events.filter(
+      (event): event is Extract<ActivityEvent, { kind: 'approval' }> =>
+        !('tombstone' in event) && event.kind === 'approval',
+    ),
+    [events],
+  );
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // The selected prompt is always on screen, so load its full text instead of
+  // leaving the block with only a short preview. This is what makes choosing a
+  // prompt (or clicking its card) produce a visible response.
+  const promptEventId = selectedPrompt?.event.eventId ?? null;
+  const promptHasContent = selectedPrompt?.event.hasContent ?? false;
+  useEffect(() => {
+    if (promptEventId && promptHasContent) {
+      void loadContent(promptEventId);
+    }
+  }, [promptEventId, promptHasContent, loadContent]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !nextCursor) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMore();
+        }
+      },
+      { rootMargin: '240px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [nextCursor, loadMore]);
 
   return (
     <Box>
@@ -583,20 +687,16 @@ export function ActivityTracePage() {
               bg="governance.line"
             />
             {selectedPrompt ? (
-              <Stack as="ol" aria-label={t('activity.selectedPromptActivityAria')} gap="5" listStyle="none" p="0" m="0">
-                <EventCard
-                  node={selectedPrompt}
-                  expanded={expanded}
-                  onToggle={toggle}
-                  variant="prompt"
-                />
-                {agentRoots.map((node) => (
-                  <EventCard
+              <Stack as="ol" aria-label={t('activity.selectedPromptActivityAria')} gap="4" listStyle="none" p="0" m="0">
+                {rows.map(({ node, depth, variant }) => (
+                  <MemoEventCard
                     key={node.event.eventId}
                     node={node}
-                    expanded={expanded}
+                    depth={depth}
+                    variant={variant}
+                    open={expanded.has(node.event.eventId)}
+                    content={contentById[node.event.eventId]}
                     onToggle={toggle}
-                    variant="agent"
                   />
                 ))}
               </Stack>
@@ -624,6 +724,8 @@ export function ActivityTracePage() {
               </Stack>
             </Box>
           ) : null}
+
+          {nextCursor ? <Box ref={sentinelRef} h="1px" aria-hidden="true" /> : null}
 
           {events.length > 0 ? (
             <Button mt="5" variant="outline" onClick={loadMore} disabled={pending || !nextCursor}>

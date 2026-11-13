@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge, Box, Button, Flex, Grid, Heading, HStack, Link as ChakraLink, Stack, Text } from '@chakra-ui/react';
 import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { ApiError } from '../../ApplicationApiClient';
@@ -58,7 +58,41 @@ export function ActivityLayout() {
   const { items, nextCursor, loading, pending, error, refresh, loadMore } = useTraceList();
   const detail = useTraceDetail(traceId);
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const detailScrollRef = useRef<HTMLElement | null>(null);
   const promptRoots = detail.tree.roots.filter((node) => node.event.kind === 'prompt');
+
+  const selectPrompt = (eventId: string) => {
+    setSelectedPromptId(eventId);
+    const pane = detailScrollRef.current;
+    if (!pane) {
+      return;
+    }
+    // The selected prompt is rendered at the top of the detail pane, so bring
+    // it into view even when the reader had scrolled further down.
+    if (pane.scrollHeight > pane.clientHeight) {
+      pane.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !nextCursor) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMore();
+        }
+      },
+      { rootMargin: '160px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [nextCursor, loadMore]);
   const selectedPrompt =
     promptRoots.find((node) => node.event.eventId === selectedPromptId)
     ?? promptRoots[promptRoots.length - 1]
@@ -186,6 +220,8 @@ export function ActivityLayout() {
           </Stack>
         ) : null}
 
+        {nextCursor ? <Box ref={sentinelRef} h="1px" aria-hidden="true" /> : null}
+
         {nextCursor ? (
           <Button mt="4" size="sm" variant="outline" onClick={loadMore} disabled={pending}>
             {pending ? t('activity.loadingMore') : t('activity.loadMoreTraces')}
@@ -259,7 +295,7 @@ export function ActivityLayout() {
                         <Button
                           type="button"
                           variant="ghost"
-                          onClick={() => setSelectedPromptId(node.event.eventId)}
+                          onClick={() => selectPrompt(node.event.eventId)}
                           aria-pressed={selected}
                           h="auto"
                           w="full"
@@ -317,12 +353,13 @@ export function ActivityLayout() {
 
           <Box
             as="section"
+            ref={detailScrollRef}
             minW="0"
             h={{ base: 'auto', lg: 'calc(100vh - 18rem)' }}
             minH="0"
             overflowY={{ lg: 'auto' }}
           >
-            <Outlet context={{ hasTraces: items.length > 0, detail, selectedPrompt, setSelectedPromptId }} />
+            <Outlet context={{ hasTraces: items.length > 0, detail, selectedPrompt }} />
           </Box>
         </Grid>
       </Box>

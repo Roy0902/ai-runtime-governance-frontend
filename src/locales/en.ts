@@ -337,6 +337,8 @@ export const en = {
     durationMs: 'Duration (ms)',
     allMetadataFields: 'All metadata fields',
     rawEventJson: 'Raw event JSON',
+    loadingContent: 'Loading content…',
+    contentLoadFailed: 'Could not load content. Reopen the details to try again.',
     toolContractNote: 'Tool arguments and results are not reported by the hook contract.',
     sessionAria: 'Session',
     layerOneSession: 'Layer 1 · Session',
