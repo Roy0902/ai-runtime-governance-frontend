@@ -18,6 +18,10 @@ export default defineConfig({
         target: backendTarget,
         changeOrigin: false,
       },
+      '/v1': {
+        target: backendTarget,
+        changeOrigin: false,
+      },
     },
   },
 });

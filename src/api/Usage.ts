@@ -1,6 +1,7 @@
 export interface ModelUsage {
   id: string;
   traceId: string;
+  eventId: string | null;
   credentialId: string | null;
   clientConversationId: string | null;
   clientUserAgent: string | null;
@@ -36,7 +37,22 @@ export interface ModelUsage {
   errorMessage: string | null;
   providerUsage: Record<string, unknown>;
   responseHeaders: Record<string, string>;
+  langfuseObservationId: string | null;
   receivedAt: string;
+}
+
+export interface ObservationContent {
+  observationId: string;
+  traceId: string;
+  name: string | null;
+  type: string | null;
+  model: string | null;
+  input: string | null;
+  output: string | null;
+  usage: Record<string, unknown>;
+  cost: Record<string, unknown>;
+  startTime: string | null;
+  endTime: string | null;
 }
 
 export interface UsageGroup {

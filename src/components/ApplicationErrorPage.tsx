@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from 'react';
 import { Box, Button, Container, Flex, Heading, HStack, Text } from '@chakra-ui/react';
 import { RotateCcw } from 'lucide-react';
+import { t } from '../i18n';
 import { ApplicationHeader } from './layout/ApplicationHeader';
 
 type ApplicationErrorPageProps = {
@@ -68,13 +69,13 @@ export class ApplicationErrorBoundary extends Component<
     return (
       <ApplicationErrorPage
         code="500"
-        eyebrow="Application error"
-        title="This page stopped unexpectedly"
-        description="Reload the application to try again. If the problem continues, contact your administrator."
+        eyebrow={t('errors.applicationEyebrow')}
+        title={t('errors.applicationTitle')}
+        description={t('errors.applicationDescription')}
       >
         <Button type="button" onClick={() => window.location.reload()}>
           <RotateCcw size={16} aria-hidden="true" />
-          Reload application
+          {t('errors.reloadApplication')}
         </Button>
       </ApplicationErrorPage>
     );

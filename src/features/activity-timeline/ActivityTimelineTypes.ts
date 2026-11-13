@@ -8,6 +8,7 @@ export interface TraceSummary {
   executionStatus: ExecutionStatus;
   telemetryStatus: TelemetryStatus;
   guardOutcome: GuardOutcome | null;
+  sessionId: string | null;
 }
 
 export interface TraceDetail extends TraceSummary {
@@ -47,6 +48,21 @@ export interface ObservedMetadata {
   status: ExecutionStatus | null;
 }
 
+export interface ModelUsageSummary {
+  usageId: string;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cachedInputTokens: number | null;
+  reasoningOutputTokens: number | null;
+  totalTokens: number | null;
+  totalCostUsd: number | null;
+  currency: string;
+  durationMs: number | null;
+  finishReasons: string[];
+  toolCallNames: string[];
+  langfuseObservationId: string | null;
+}
+
 interface ActivityEventBase {
   eventId: string;
   traceId: string;
@@ -56,6 +72,8 @@ interface ActivityEventBase {
   sourceAt: string | null;
   durationMs: number | null;
   identity: string | null;
+  content: Record<string, unknown> | null;
+  raw?: Record<string, unknown>;
 }
 
 export type ActivityEvent =
@@ -65,6 +83,7 @@ export type ActivityEvent =
   | (ActivityEventBase & {
       kind: 'agent' | 'model' | 'tool';
       metadata: ObservedMetadata;
+      usage: ModelUsageSummary | null;
     });
 
 export interface EventTombstone {

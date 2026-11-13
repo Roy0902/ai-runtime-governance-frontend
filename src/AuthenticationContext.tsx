@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AuthenticationContext } from './api/AuthenticationContext';
 import { apiRequest, setCsrfToken } from './ApplicationApiClient';
+import { t } from './i18n';
 
 interface AuthenticationValue {
   context: AuthenticationContext | null;
@@ -29,11 +30,11 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setRefreshError(null);
     try {
-      const next = await apiRequest<AuthenticationContext>('/api/v1/auth/context');
+      const next = await apiRequest<AuthenticationContext>('/api/v1/session/context');
       adopt(next);
       return next;
     } catch (caught) {
-      setRefreshError('Unable to load your session. Check your connection and try again.');
+      setRefreshError(t('errors.sessionRefreshDescription'));
       throw caught;
     } finally {
       setLoading(false);

@@ -1,16 +1,13 @@
 import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AuthenticationProvider } from './AuthenticationContext';
-import { ActivityTimelinePreviewShell } from './components/layout/ApplicationShell';
 import { RequireHuman } from './components/layout/RequireHuman';
 import { PageLoading } from './components/ui/PageLoading';
+import { ActivityEmptyState, ActivityLayout } from './features/activity-timeline/ActivityLayout';
+import { t } from './i18n';
 
-const ActivityTimelinePage = lazy(() => import('./features/activity-timeline/ActivityTimelinePage')
-  .then((module) => ({ default: module.ActivityTimelinePage })));
 const ActivityTracePage = lazy(() => import('./features/activity-timeline/ActivityTracePage')
   .then((module) => ({ default: module.ActivityTracePage })));
-const ActivityTracesPage = lazy(() => import('./features/activity-timeline/ActivityTracesPage')
-  .then((module) => ({ default: module.ActivityTracesPage })));
 const AuthenticationRoutes = lazy(() => import('./features/authentication/AuthenticationRoutes')
   .then((module) => ({ default: module.AuthenticationRoutes })));
 
@@ -22,24 +19,24 @@ function AuthenticatedRoutes() {
           path="/activity"
           element={
             <RequireHuman>
-              <Suspense fallback={<PageLoading label="Loading activity" />}>
-                <ActivityTracesPage />
+              <Suspense fallback={<PageLoading label={t('loading.activity')} />}>
+                <ActivityLayout />
               </Suspense>
             </RequireHuman>
           }
-        />
-        <Route
-          path="/activity/:traceId"
-          element={
-            <RequireHuman>
-              <Suspense fallback={<PageLoading label="Loading trace" />}>
+        >
+          <Route index element={<ActivityEmptyState />} />
+          <Route
+            path=":traceId"
+            element={
+              <Suspense fallback={<PageLoading label={t('loading.trace')} />}>
                 <ActivityTracePage />
               </Suspense>
-            </RequireHuman>
-          }
-        />
+            }
+          />
+        </Route>
         <Route path="/*" element={
-          <Suspense fallback={<PageLoading label="Loading account" />}>
+          <Suspense fallback={<PageLoading label={t('loading.account')} />}>
             <AuthenticationRoutes />
           </Suspense>
         } />
@@ -51,18 +48,6 @@ function AuthenticatedRoutes() {
 export function ApplicationRoutes() {
   return (
     <Routes>
-      {import.meta.env.DEV ? (
-        <Route
-          path="/activity-preview"
-          element={
-            <ActivityTimelinePreviewShell>
-              <Suspense fallback={<PageLoading label="Loading preview" />}>
-                <ActivityTimelinePage />
-              </Suspense>
-            </ActivityTimelinePreviewShell>
-          }
-        />
-      ) : null}
       <Route path="/*" element={<AuthenticatedRoutes />} />
     </Routes>
   );
