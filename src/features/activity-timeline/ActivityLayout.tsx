@@ -7,6 +7,13 @@ import { formatTime, outcomeLabel, promptPreview, StatusBadge } from './Activity
 import type { EventNode } from './ActivityTimelineModel';
 import { useTraceDetail, useTraceList } from './useActivityTimeline';
 
+function sessionShortId(sessionId: string): string {
+  const value = sessionId.includes(':')
+    ? sessionId.slice(sessionId.lastIndexOf(':') + 1)
+    : sessionId;
+  return value.slice(-8);
+}
+
 function activityErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 429 && error.retryAfterSeconds !== null) {
@@ -53,7 +60,9 @@ export function ActivityLayout() {
   const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   const promptRoots = detail.tree.roots.filter((node) => node.event.kind === 'prompt');
   const selectedPrompt =
-    promptRoots.find((node) => node.event.eventId === selectedPromptId) ?? promptRoots[0] ?? null;
+    promptRoots.find((node) => node.event.eventId === selectedPromptId)
+    ?? promptRoots[promptRoots.length - 1]
+    ?? null;
   const apiError = error instanceof ApiError ? error : null;
   const signInRequired = apiError?.status === 401;
   const notFound = apiError?.status === 404;
@@ -152,8 +161,15 @@ export function ActivityLayout() {
                         _hover={{ borderColor: 'governance.primary', boxShadow: 'sm' }}
                       >
                         <Flex justify="space-between" align="center" gap="2">
-                          <Text fontFamily="mono" fontSize="sm" fontWeight="semibold">
-                            {t('activity.traceLabel', { id: trace.traceId.slice(-8) })}
+                          <Text
+                            fontFamily="mono"
+                            fontSize="sm"
+                            fontWeight="semibold"
+                            title={trace.sessionId ?? undefined}
+                          >
+                            {trace.sessionId
+                              ? t('activity.sessionLabel', { id: sessionShortId(trace.sessionId) })
+                              : t('activity.traceLabel', { id: trace.traceId.slice(-8) })}
                           </Text>
                           <StatusBadge value={trace.executionStatus} />
                         </Flex>

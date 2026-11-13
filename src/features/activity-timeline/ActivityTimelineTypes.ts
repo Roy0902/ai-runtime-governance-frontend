@@ -8,6 +8,7 @@ export interface TraceSummary {
   executionStatus: ExecutionStatus;
   telemetryStatus: TelemetryStatus;
   guardOutcome: GuardOutcome | null;
+  sessionId: string | null;
 }
 
 export interface TraceDetail extends TraceSummary {

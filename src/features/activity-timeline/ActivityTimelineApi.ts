@@ -127,7 +127,7 @@ function toTraceItem(item: TraceSummaryDto): TraceItem {
     const tombstone: TraceTombstone = { tombstone: true, traceId: item.traceId };
     return tombstone;
   }
-  return item;
+  return { ...item, sessionId: item.sessionId ?? null };
 }
 
 /** Cursor for live polling: the newest row already displayed. */
@@ -153,7 +153,8 @@ export async function fetchLiveEvents(
 }
 
 export async function fetchTrace(traceId: string): Promise<TraceDetail> {
-  return apiRequest<TraceDetail>(`/api/v1/traces/${encodeURIComponent(traceId)}`);
+  const trace = await apiRequest<TraceDetail>(`/api/v1/traces/${encodeURIComponent(traceId)}`);
+  return { ...trace, sessionId: trace.sessionId ?? null };
 }
 
 export async function fetchEventPage(

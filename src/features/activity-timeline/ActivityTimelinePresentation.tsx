@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import type { ActivityEvent, GuardOutcome, TraceDetail } from './ActivityTimelineTypes';
 import { formatDateTime } from '../../format/date';
 import { t } from '../../i18n';
-import { Badge, Box, Flex, Grid, Heading, HStack, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Flex, Grid, Heading, HStack, Text } from '@chakra-ui/react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 export function promptPreview(event: ActivityEvent): string {
   const text = event.content?.text;
@@ -42,6 +44,54 @@ export function shortId(value: string): string {
 
 export function outcomeLabel(value: GuardOutcome | null): string {
   return value ? capitalize(value.replaceAll('_', ' ')) : t('activity.noGuardOutcome');
+}
+
+export function JsonBlock({ value, label }: { value: unknown; label: string }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Box>
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        px="1"
+        justifyContent="flex-start"
+        color="governance.muted"
+        fontWeight="bold"
+        textTransform="uppercase"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {open ? (
+          <ChevronDown size={14} aria-hidden="true" />
+        ) : (
+          <ChevronRight size={14} aria-hidden="true" />
+        )}
+        {label}
+      </Button>
+      {open ? (
+        <Box
+          as="pre"
+          mt="2"
+          m="0"
+          p="3"
+          bg="white"
+          borderWidth="1px"
+          borderColor="governance.line"
+          borderRadius="md"
+          fontFamily="mono"
+          fontSize="xs"
+          whiteSpace="pre-wrap"
+          wordBreak="break-word"
+          maxH="96"
+          overflowY="auto"
+        >
+          {JSON.stringify(value, null, 2)}
+        </Box>
+      ) : null}
+    </Box>
+  );
 }
 
 export function StatusBadge({ value, label }: { value: string | null; label?: string }) {

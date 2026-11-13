@@ -10,6 +10,7 @@ import type { EventNode } from './ActivityTimelineModel';
 import {
   coverageLabel,
   formatTime,
+  JsonBlock,
   outcomeLabel,
   shortId,
   statusLabel,
@@ -161,29 +162,6 @@ function EventContent({ event }: { event: ActivityEvent }) {
   );
 }
 
-function RawJson({ value }: { value: unknown }) {
-  return (
-    <Box
-      as="pre"
-      gridColumn={{ md: '1 / -1' }}
-      m="0"
-      p="3"
-      bg="white"
-      borderWidth="1px"
-      borderColor="governance.line"
-      borderRadius="md"
-      fontFamily="mono"
-      fontSize="xs"
-      whiteSpace="pre-wrap"
-      wordBreak="break-word"
-      maxH="96"
-      overflowY="auto"
-    >
-      {JSON.stringify(value, null, 2)}
-    </Box>
-  );
-}
-
 function tokens(value: number | null): string {
   return value === null ? t('common.notReported') : value.toLocaleString();
 }
@@ -252,8 +230,7 @@ function ModelStepUsage({ traceId, usage }: { traceId: string; usage: ModelUsage
           </Box>
         ))}
       </Grid>
-      <Text color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">{t('activity.rawUsageJson')}</Text>
-      <RawJson value={usage} />
+      <JsonBlock label={t('activity.rawUsageJson')} value={usage} />
       {observationId ? (
         <Button size="sm" variant="ghost" alignSelf="flex-start" aria-expanded={open} onClick={toggle}>
           {open ? t('activity.hideOutput') : t('activity.viewOutput')}
@@ -291,15 +268,20 @@ function SessionLayer({ trace }: { trace: TraceDetail }) {
     <Box as="section" aria-label={t('activity.sessionAria')} p={{ base: '5', md: '6' }} borderRadius="2xl" bg="governance.ink" color="white">
       <Flex justify="space-between" align="flex-start" gap="4" wrap="wrap">
         <Box>
-          <Text color="whiteAlpha.700" fontSize="xs" fontWeight="bold" textTransform="uppercase">
+          <Text color="whiteAlpha.800" fontSize="xs" fontWeight="bold" textTransform="uppercase">
             {t('activity.layerOneSession')}
           </Text>
-          <Heading mt="2" fontFamily="heading" fontSize="2xl">
+          <Heading mt="2" fontFamily="heading" fontSize="2xl" color="white">
             {trace.identity ?? t('activity.identityNotReported')}
           </Heading>
-          <Text as="code" display="block" mt="2" color="whiteAlpha.700" fontSize="xs" overflowWrap="anywhere">
+          <Text as="code" display="block" mt="2" color="whiteAlpha.800" fontSize="xs" overflowWrap="anywhere">
             {trace.traceId}
           </Text>
+          {trace.sessionId ? (
+            <Text mt="1" color="whiteAlpha.800" fontSize="xs" overflowWrap="anywhere">
+              {t('activity.sessionIdLabel')}: {trace.sessionId}
+            </Text>
+          ) : null}
         </Box>
         <StatusBadge value={trace.executionStatus} />
       </Flex>
@@ -311,7 +293,7 @@ function SessionLayer({ trace }: { trace: TraceDetail }) {
           [t('activity.receivedUtc'), formatTime(trace.receivedAt)],
         ].map(([label, value]) => (
           <Box key={label} p="3" borderRadius="lg" bg="whiteAlpha.100">
-            <Text color="whiteAlpha.700" fontSize="xs">{label}</Text>
+            <Text color="whiteAlpha.800" fontSize="xs">{label}</Text>
             <Text mt="1" fontSize="sm" fontWeight="semibold">{value}</Text>
           </Box>
         ))}
@@ -458,10 +440,9 @@ function EventCard({
                   {t('activity.toolContractNote')}
                 </Text>
               ) : null}
-              <Text gridColumn={{ md: '1 / -1' }} color="governance.muted" fontSize="xs" fontWeight="bold" textTransform="uppercase">
-                {t('activity.rawEventJson')}
-              </Text>
-              <RawJson value={event.raw ?? event} />
+              <Box gridColumn={{ md: '1 / -1' }}>
+                <JsonBlock label={t('activity.rawEventJson')} value={event.raw ?? event} />
+              </Box>
             </Grid>
           ) : null}
         </Box>
@@ -496,12 +477,11 @@ function EventCard({
 function TraceRawPanel({ trace, events }: { trace: TraceDetail; events: ActivityTimelineItem[] }) {
   return (
     <Box as="section" aria-labelledby="raw-timeline-heading" mt="5" p={{ base: '4', md: '6' }} borderWidth="1px" borderColor="governance.line" borderRadius="xl" bg="white">
-      <Text mb="1" color="governance.primary" fontSize="xs" fontWeight="bold" textTransform="uppercase">{t('activity.rawPayload')}</Text>
       <Heading id="raw-timeline-heading" fontFamily="heading" fontSize="xl" mb="2">{t('activity.rawPayloadTitle')}</Heading>
       <Text mb="4" color="governance.muted" fontSize="sm">
         {t('activity.rawPayloadDescription')}
       </Text>
-      <RawJson value={{ trace, events }} />
+      <JsonBlock label={t('activity.rawPayload')} value={{ trace, events }} />
     </Box>
   );
 }

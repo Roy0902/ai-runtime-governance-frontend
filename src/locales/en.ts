@@ -205,6 +205,8 @@ export const en = {
     tracesAria: 'Traces',
     traceUnavailable: 'Trace unavailable',
     traceLabel: 'Trace {id}',
+    sessionLabel: 'Session {id}',
+    sessionIdLabel: 'Session ID',
     loadingMore: 'Loading more…',
     loadMoreTraces: 'Load more traces',
     traceDetail: 'Trace detail',
